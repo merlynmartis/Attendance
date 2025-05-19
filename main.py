@@ -140,8 +140,8 @@ st.markdown("""
 from streamlit_autorefresh import st_autorefresh
 from datetime import datetime
 
-# Auto-refresh every 1 second (1000 ms)
-st_autorefresh(interval=30000, limit=None, key="clock_refresh")
+
+st_autorefresh(interval=1000, limit=None, key="clock_refresh")
 
 # Show the time
 current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
