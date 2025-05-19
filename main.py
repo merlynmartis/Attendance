@@ -38,11 +38,19 @@ def set_background(image_file):
 
 set_background("background.jpg")
 
-# Sidebar time
 from streamlit_autorefresh import st_autorefresh
+from zoneinfo import ZoneInfo
+
+# Refresh clock every 30 seconds
 st_autorefresh(interval=30000, limit=None, key="clock_refresh")
-current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-st.sidebar.markdown(f"🕒 **Current Time:** `{current_time}`")
+
+# Set IST timezone
+ist = ZoneInfo("Asia/Kolkata")
+current_time = datetime.now(ist).strftime("%Y-%m-%d %H:%M:%S")
+
+# Display time in sidebar
+st.sidebar.markdown(f"🕒 **Current Time (IST):** `{current_time}`")
+
 
 # Unified Select Action
 menu = st.sidebar.selectbox(
