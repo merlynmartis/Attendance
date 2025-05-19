@@ -41,12 +41,12 @@ set_background("background.jpg")
 from streamlit_autorefresh import st_autorefresh
 from zoneinfo import ZoneInfo
 
-# Refresh clock every 30 seconds
-st_autorefresh(interval=30000, limit=None, key="clock_refresh")
+# Refresh clock every 60 seconds
+st_autorefresh(interval=60000, limit=None, key="clock_refresh")
 
 # Set IST timezone
 ist = ZoneInfo("Asia/Kolkata")
-current_time = datetime.now(ist).strftime("%Y-%m-%d %H:%M:%S")
+current_time = datetime.now(ist).strftime("%Y-%m-%d %H:%M")
 
 # Display time in sidebar
 st.sidebar.markdown(f"🕒 **Current Time (IST):** `{current_time}`")
