@@ -4,6 +4,7 @@ import cv2
 import os
 import torch
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from PIL import Image
 from facenet_pytorch import MTCNN, InceptionResnetV1
 import pandas as pd
@@ -38,10 +39,11 @@ def set_background(image_file):
 
 set_background("background.jpg")
 
-# Sidebar time
+# Sidebar time with timezone (e.g., Asia/Kolkata)
 from streamlit_autorefresh import st_autorefresh
 st_autorefresh(interval=30000, limit=None, key="clock_refresh")
-current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+tz = ZoneInfo("Asia/Kolkata")  # Change to your timezone
+current_time = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
 st.sidebar.markdown(f"🕒 **Current Time:** `{current_time}`")
 
 # Unified Select Action
@@ -113,10 +115,10 @@ if menu == "Register Face":
     if uploaded_picture and name:
         # Load saved embeddings if not already in session
         if os.path.exists("data/registered_faces.npz"):
-            data = np.load("data/registered_faces.npz")
-            for key in data.files:
-                if key not in st.session_state.embeddings:
-                    st.session_state.embeddings[key] = data[key]
+            with np.load("data/registered_faces.npz") as data:
+                for key in data.files:
+                    if key not in st.session_state.embeddings:
+                        st.session_state.embeddings[key] = data[key]
 
         image = Image.open(uploaded_picture)
         img = np.array(image)
@@ -144,12 +146,12 @@ elif menu == "Take Attendance":
             emb = get_embedding(face_tensor)
 
             if not st.session_state.embeddings and os.path.exists("data/registered_faces.npz"):
-                data = np.load("data/registered_faces.npz")
-                st.session_state.embeddings = {name: data[name] for name in data.files}
+                with np.load("data/registered_faces.npz") as data:
+                    st.session_state.embeddings = {name: data[name] for name in data.files}
 
             for name, db_emb in st.session_state.embeddings.items():
                 if is_match(db_emb, emb):
-                    now = datetime.now()
+                    now = datetime.now(tz)
                     record = {"Name": name, "Date": now.strftime("%Y-%m-%d"), "Time": now.strftime("%H:%M:%S")}
                     if record not in st.session_state.attendance:
                         st.session_state.attendance.append(record)
@@ -195,13 +197,15 @@ elif menu == "View Registered Students":
     if os.path.exists("data/registered_faces.npz"):
         with np.load("data/registered_faces.npz") as data:
             registered_names = list(data.files)
+
         if registered_names:
             for name in registered_names:
                 st.markdown(f"- {name}")
             if admin_password == "secret123":
                 if st.button("❌ Clear Registered Students"):
-                    os.remove("data/registered_faces.npz")
+                    # Ensure file is not open before deleting
                     st.session_state.embeddings = {}
+                    os.remove("data/registered_faces.npz")
                     st.success("✅ Registered students cleared.")
             else:
                 st.warning("🔒 Enter correct admin password to clear registered students.")
