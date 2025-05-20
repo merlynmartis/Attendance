@@ -60,7 +60,7 @@ menu = st.sidebar.selectbox(
         "Take Attendance",
         "Download Attendance Sheet",
         "Clear Attendance",
-        "View Registered Students"
+        "View Registered Users"
     ],
     key="action_selectbox"
 )
@@ -197,9 +197,9 @@ elif menu == "Clear Attendance":
     else:
         st.warning("🔒 Enter admin password in the sidebar to clear records.")
 
-# View Registered Students Page
-elif menu == "View Registered Students":
-    st.subheader("👥 Registered Students")
+# View Registered Users Page
+elif menu == "View Registered Users":
+    st.subheader("👥 Registered Users")
     if os.path.exists("data/registered_faces.npz"):
         with np.load("data/registered_faces.npz") as data:
             registered_names = list(data.files)
@@ -207,13 +207,13 @@ elif menu == "View Registered Students":
             for name in registered_names:
                 st.markdown(f"- {name}")
             if admin_password == "secret123":
-                if st.button("❌ Clear Registered Students"):
+                if st.button("❌ Clear Registered Users"):
                     os.remove("data/registered_faces.npz")
                     st.session_state.embeddings = {}
-                    st.success("✅ Registered students cleared.")
+                    st.success("✅ Registered Users cleared.")
             else:
-                st.warning("🔒 Enter correct admin password to clear registered students.")
+                st.warning("🔒 Enter correct admin password to clear registered Users.")
         else:
-            st.info("No students found in the data file.")
+            st.info("No Users found in the data file.")
     else:
-        st.info("📭 No registered students found.")
+        st.info("📭 No Users students found.")
