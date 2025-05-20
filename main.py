@@ -197,7 +197,7 @@ elif menu == "Clear Attendance":
     else:
         st.warning("🔒 Enter admin password in the sidebar to clear records.")
 
-# View Registered Users Page
+# View Registered Students Page
 elif menu == "View Registered Users":
     st.subheader("👥 Registered Users")
     if os.path.exists("data/registered_faces.npz"):
@@ -216,4 +216,4 @@ elif menu == "View Registered Users":
         else:
             st.info("No Users found in the data file.")
     else:
-        st.info("📭 No Users found.")
+        st.info("📭 No registered Users found.")
