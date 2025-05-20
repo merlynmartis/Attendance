@@ -216,4 +216,4 @@ elif menu == "View Registered Users":
         else:
             st.info("No Users found in the data file.")
     else:
-        st.info("📭 No Users students found.")
+        st.info("📭 No Users found.")
