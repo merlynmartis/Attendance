@@ -108,7 +108,7 @@ st.markdown("""
     box-shadow: 0 4px 10px rgba(43, 103, 119, 0.15);
 ">
     <h2 style="color: #2b6777; margin-bottom: 0.5rem;"> Presencia - A Face Attendance System</h2>
-    <p style="font-size: 20px; color: #2b6777; font-style: italic;">Presence, perfected through recognition.</p>
+    <p style="font-size: 20px; color: #2b6777; font-style: italic;">Look once. You're marked present.</p>
 </div>
 """, unsafe_allow_html=True)
 
