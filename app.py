@@ -43,13 +43,20 @@ def get_user_location():
         return None
 
 def append_attendance(name, date, time):
-    # Append a new row: [Name, Date, Time]
     try:
-        sheet.append_row([name, date, time])
+        today_sheet_name = date  # Format should be "YYYY-MM-DD"
+        try:
+            worksheet = gc.open_by_key(SHEET_ID).worksheet(today_sheet_name)
+        except gspread.exceptions.WorksheetNotFound:
+            worksheet = gc.open_by_key(SHEET_ID).add_worksheet(title=today_sheet_name, rows="1000", cols="3")
+            worksheet.append_row(["Name", "Date", "Time"])  # Header
+
+        worksheet.append_row([name, date, time])
         return True
     except Exception as e:
-        st.error(f"Failed to write to Google Sheet: {e}")
+        st.error(f"❌ Failed to write to Google Sheet: {e}")
         return False
+
 
 from datetime import datetime
 import pytz
@@ -58,19 +65,15 @@ import pytz
 ist = pytz.timezone('Asia/Kolkata')
 
 def get_today_attendance():
+    today_str = datetime.now(ist).strftime("%Y-%m-%d")
     try:
-        all_records = sheet.get_all_records()
-        today_str = datetime.now(ist).strftime("%Y-%m-%d")
-
-        # Debug: Show raw data temporarily
-        #st.write("All Records:", all_records)
-
-        # Ensure 'Date' column matches today's date
-        today_records = [rec for rec in all_records if rec.get('Date') == today_str]
-
-        return today_records
+        worksheet = gc.open_by_key(SHEET_ID).worksheet(today_str)
+        all_records = worksheet.get_all_records()
+        return all_records
+    except gspread.exceptions.WorksheetNotFound:
+        return []  # No attendance yet for today
     except Exception as e:
-        st.error(f"❌ Failed to read Google Sheet: {e}")
+        st.error(f"❌ Failed to read today's sheet: {e}")
         return []
 
 # Page config
