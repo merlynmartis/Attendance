@@ -1,0 +1,14 @@
+streamlit
+opencv-python-headless
+facenet-pytorch
+torch
+numpy
+pandas
+Pillow
+mediapipe
+geopy
+requests
+gspread
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
