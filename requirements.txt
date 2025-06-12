@@ -12,7 +12,4 @@ gspread
 google-auth
 google-auth-oauthlib
 google-auth-httplib2
-pygments
-mdurl
-markdown-it-py
 rich
