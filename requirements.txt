@@ -5,7 +5,6 @@ torch
 numpy
 pandas
 Pillow
-mediapipe
 geopy
 requests
 gspread
