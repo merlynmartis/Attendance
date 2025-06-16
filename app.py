@@ -134,7 +134,7 @@ admin_password = st.sidebar.text_input("🔐 Admin Password", type="password")
 
 # Load models
 device = "cuda" if torch.cuda.is_available() else "cpu"
-mtcnn = MTCNN(image_size=160, margin=20, device=device)
+mtcnn = MTCNN(image_size=160, margin=20,keep_all=False, device=device)
 model = InceptionResnetV1(pretrained='vggface2').eval().to(device)
 
 # Session state
