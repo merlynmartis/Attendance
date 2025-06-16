@@ -148,7 +148,7 @@ admin_password = st.sidebar.text_input("🔐 Admin Password", type="password")
 
 # Register Face
 if menu == "Register Face":
-    st.subheader("Register New Face")
+    st.markdown('<h3 style="text-align: center; color: #2b6777;"> Register New Face</h3>', unsafe_allow_html=True)
     name = st.text_input("Enter your name")
     uploaded = st.file_uploader("Upload a picture", type=["jpg", "jpeg", "png"])
 
