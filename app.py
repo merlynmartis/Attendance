@@ -147,34 +147,20 @@ if "attendance" not in st.session_state:
 os.makedirs("data", exist_ok=True)
 
 # Utilities
-from PIL import Image
-import numpy as np
-import cv2
-
-def extract_face(img_np):
-    try:
-        # Convert BGR to RGB if needed
-        if isinstance(img_np, np.ndarray):
-            if img_np.ndim == 3 and img_np.shape[2] == 3:
-                img_rgb = cv2.cvtColor(img_np, cv2.COLOR_BGR2RGB)
-            else:
-                raise ValueError("Uploaded image must be a color image (3 channels).")
+def extract_face(img):
+    if isinstance(img, np.ndarray):
+        if img.ndim == 3 and img.shape[2] == 3:
+            img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         else:
-            raise ValueError("Uploaded image must be a NumPy array.")
-
-        # Convert to PIL image (required by MTCNN)
+            raise ValueError("❌ Uploaded image must be a color image with 3 channels.")
         pil_img = Image.fromarray(img_rgb)
+    else:
+        raise ValueError("❌ Input must be a NumPy array.")
 
-        # Detect face
-        face_tensor = mtcnn(pil_img)
-        if face_tensor is not None:
-            return face_tensor.unsqueeze(0).to(device)
-        else:
-            return None
-    except Exception as e:
-        st.error(f"❌ Failed to process image: {e}")
-        return None
-
+    face_tensor = mtcnn(pil_img)
+    if face_tensor is not None:
+        return face_tensor.unsqueeze(0).to(device)
+    return None
 
 
 def get_embedding(face_tensor):
@@ -205,17 +191,27 @@ if menu == "Register Face":
     uploaded_picture = st.file_uploader("Upload a picture", type=["jpg", "jpeg", "png"])
 
     if uploaded_picture and name:
-        image = Image.open(uploaded_picture)
-        img_np = np.array(image)  # Convert PIL to NumPy
+        # Load saved embeddings if not already in session
+        if os.path.exists("data/registered_faces.npz"):
+            data = np.load("data/registered_faces.npz")
+            for key in data.files:
+                if key not in st.session_state.embeddings:
+                    st.session_state.embeddings[key] = data[key]
 
-        face_tensor = extract_face(img_np)
-        if face_tensor is not None:
-            embedding = get_embedding(face_tensor)
-            st.session_state.embeddings[name] = embedding
-            np.savez("data/registered_faces.npz", **st.session_state.embeddings)
-            st.success(f"✅ Face registered for {name}")
-        else:
-            st.error("❌ No face detected. Try a clearer image.")
+        image = Image.open(uploaded_picture)
+        img = np.array(image)  # Convert to NumPy array
+
+        try:
+            face_tensor = extract_face(img)
+            if face_tensor is not None:
+                emb = get_embedding(face_tensor)
+                st.session_state.embeddings[name] = emb
+                np.savez("data/registered_faces.npz", **st.session_state.embeddings)
+                st.success(f"✅ Face registered for {name}")
+            else:
+                st.error("❌ No face detected. Try a clearer image.")
+        except Exception as e:
+            st.error(f"❌ Failed to process image: {e}")
 
 
 elif menu == "Take Attendance":
