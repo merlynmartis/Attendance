@@ -148,21 +148,30 @@ os.makedirs("data", exist_ok=True)
 
 # Utilities
 def extract_face(img):
+    # Convert input to PIL.Image in RGB mode
     if isinstance(img, Image.Image):
         img_rgb = img.convert("RGB")
     elif isinstance(img, np.ndarray):
         if img.ndim == 3 and img.shape[2] == 3:
-            img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            img_rgb = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
         else:
-            raise ValueError("Invalid image array format")
-        img_rgb = Image.fromarray(img_rgb)
+            raise ValueError("❌ Invalid NumPy image format. Expected (H, W, 3) for color image.")
     else:
-        raise ValueError("Invalid image type passed to extract_face")
+        raise TypeError("❌ Unsupported image type. Must be PIL.Image or NumPy array.")
 
-    face_tensor = mtcnn(img_rgb)
+    # Run MTCNN on the image
+    try:
+        face_tensor = mtcnn(img_rgb)
+    except Exception as e:
+        st.error(f"❌ Face extraction failed: {e}")
+        return None
+
     if face_tensor is not None:
         return face_tensor.unsqueeze(0).to(device)
-    return None
+    else:
+        st.warning("⚠️ No face detected in the image.")
+        return None
+
 
 
 def get_embedding(face_tensor):
@@ -250,7 +259,9 @@ elif menu == "Take Attendance":
 
                 # Face detection and extraction
                 rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                face_tensor = mtcnn(rgb)
+                rgb_pil = Image.fromarray(rgb)
+                face_tensor = mtcnn(rgb_pil)
+
 
                 if face_tensor is not None:
                     emb = resnet(face_tensor.unsqueeze(0)).detach().numpy()
