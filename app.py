@@ -77,48 +77,46 @@ if "embeddings" not in st.session_state:
         st.session_state.embeddings = {k: data[k] for k in data.files}
 
 elif menu == "Register Face":
-    st.markdown('<h3 style="text-align: center; color: #2b6777;"> Register New Face via Webcam</h3>', unsafe_allow_html=True)
+    st.markdown('<h3 style="text-align: center; color: #2b6777;">Register New Face (via Webcam)</h3>', unsafe_allow_html=True)
     name = st.text_input("Enter your name")
 
-    if name and st.button("📷 Capture Face"):
-        st.info("Initializing webcam. Please wait...")
+    if st.button("📷 Capture Face from Webcam"):
+        if name.strip() == "":
+            st.warning("⚠️ Please enter a name before capturing.")
+        else:
+            cap = cv2.VideoCapture(0)
+            st.info("Webcam started. Please look at the camera.")
+            stframe = st.empty()
+            face_captured = False
+            timeout = time.time() + 20  # max 20 seconds
 
-        cap = cv2.VideoCapture(0)
-        stframe = st.empty()
-        message = st.empty()
-        timeout = time.time() + 20  # 20 seconds to capture
+            while time.time() < timeout:
+                ret, frame = cap.read()
+                if not ret:
+                    st.error("❌ Failed to read from webcam.")
+                    break
 
-        registered = False
+                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                face_tensor = mtcnn(Image.fromarray(rgb_frame))
 
-        while time.time() < timeout:
-            ret, frame = cap.read()
-            if not ret:
-                message.error("❌ Failed to access webcam.")
-                break
+                stframe.image(frame, channels="BGR", caption="Capturing...")
 
-            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            pil_img = Image.fromarray(rgb_frame)
+                if face_tensor is not None:
+                    embedding = get_embedding(face_tensor.unsqueeze(0))
+                    st.session_state.embeddings[name] = embedding
 
-            face_tensor = mtcnn(pil_img)
+                    # Save to file
+                    np.savez("data/registered_faces.npz", **st.session_state.embeddings)
 
-            stframe.image(frame, channels="BGR", caption="Align your face...")
+                    st.success(f"✅ Face registered for {name}")
+                    face_captured = True
+                    break
 
-            if face_tensor is not None:
-                embedding = get_embedding(face_tensor)
-                st.session_state.embeddings[name] = embedding
+            cap.release()
+            stframe.empty()
+            if not face_captured:
+                st.warning("⚠️ Face not captured. Try again.")
 
-                # Save to .npz
-                np.savez("data/registered_faces.npz", **st.session_state.embeddings)
-
-                message.success(f"✅ Face registered for {name}")
-                registered = True
-                break
-
-        cap.release()
-        stframe.empty()
-
-        if not registered:
-            message.warning("⚠️ Face not detected. Try again.")
 
 
 # Take Attendance
