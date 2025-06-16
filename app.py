@@ -12,25 +12,21 @@ import requests
 import gspread
 from google.oauth2.service_account import Credentials
 
-import streamlit as st
-import base64
-
-# Page config
+# 🟨 Page Config (must be very first Streamlit command)
 st.set_page_config(page_title="Face Attendance", layout="centered")
 
-# Set background
+# 🖼️ Set background image
 def get_base64_image(image_path):
     with open(image_path, "rb") as f:
-        encoded = base64.b64encode(f.read()).decode()
-    return encoded
+        return base64.b64encode(f.read()).decode()
 
 def set_background(image_file):
-    encoded_image = get_base64_image(image_file)
+    encoded = get_base64_image(image_file)
     st.markdown(
         f"""
         <style>
         .stApp {{
-            background-image: url("data:image/jpg;base64,{encoded_image}");
+            background-image: url("data:image/jpg;base64,{encoded}");
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
@@ -43,32 +39,30 @@ def set_background(image_file):
 
 set_background("background.jpg")
 
-# Google Sheets Setup
+# 🔐 Google Sheets Setup
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
 service_account_info = st.secrets["gcp_service_account"]
 creds = Credentials.from_service_account_info(service_account_info, scopes=SCOPES)
 gc = gspread.authorize(creds)
 SHEET_ID = '1lO0qt1EWZAwXjhRUOk19igYwI2rNyx5hLkG4wLyUkzc'
 
-# Constants
+# 📍 Constants
 INDIANA_LOCATION = (12.8697, 74.8426)
 LOCATION_RADIUS_KM = 0.5
+os.makedirs("data", exist_ok=True)
 
-# Streamlit Setup
-st.set_page_config(page_title="Face Attendance", layout="centered")
-
+# 🧠 Face Recognition Setup
 device = "cuda" if torch.cuda.is_available() else "cpu"
 mtcnn = MTCNN(image_size=160, margin=20, device=device)
 model = InceptionResnetV1(pretrained='vggface2').eval().to(device)
 
+# 📦 Session State Init
 if "embeddings" not in st.session_state:
     st.session_state.embeddings = {}
 if "attendance" not in st.session_state:
     st.session_state.attendance = []
 
-os.makedirs("data", exist_ok=True)
-
-# Functions
+# 🔧 Utility Functions
 def extract_face(img):
     img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     face_tensor = mtcnn(Image.fromarray(img_rgb))
@@ -113,29 +107,27 @@ def get_today_attendance():
     date = datetime.now().strftime("%Y-%m-%d")
     try:
         worksheet = gc.open_by_key(SHEET_ID).worksheet(date)
-        records = worksheet.get_all_records()
-        return records
+        return worksheet.get_all_records()
     except:
         return []
 
-
-# UI
+# 🌐 UI
 st.title("📸 Face Recognition Attendance")
 
 menu = st.sidebar.selectbox("Menu", [
-    "Register Face", 
-    "Take Attendance", 
-    "View Attendance Sheet", 
+    "Register Face",
+    "Take Attendance",
+    "View Attendance Sheet",
     "View Registered Users"
 ])
 admin_password = st.sidebar.text_input("🔐 Admin Password", type="password")
 
-# Register
+# 👤 Register Face
 if menu == "Register Face":
     st.subheader("📝 Register New Face")
     name = st.text_input("Enter your name")
     uploaded = st.file_uploader("Upload a picture", type=["jpg", "jpeg", "png"])
-    
+
     if uploaded and name:
         img = np.array(Image.open(uploaded))
         face_tensor = extract_face(img)
@@ -147,7 +139,7 @@ if menu == "Register Face":
         else:
             st.error("❌ No face detected.")
 
-# Attendance
+# 📷 Take Attendance
 elif menu == "Take Attendance":
     st.subheader("📷 Take Attendance")
     captured = st.camera_input("Take your photo")
@@ -186,7 +178,7 @@ elif menu == "Take Attendance":
             else:
                 st.error("❌ No face detected.")
 
-# View Today's Sheet
+# 📅 View Today’s Attendance
 elif menu == "View Attendance Sheet":
     st.subheader("📅 Today's Attendance")
     today_records = get_today_attendance()
@@ -196,7 +188,7 @@ elif menu == "View Attendance Sheet":
     else:
         st.info("📭 No attendance found for today.")
 
-# View Registered Users
+# 📂 View Registered Users
 elif menu == "View Registered Users":
     st.subheader("👥 Registered Users")
     if os.path.exists("data/registered_faces.npz"):
