@@ -148,11 +148,22 @@ os.makedirs("data", exist_ok=True)
 
 # Utilities
 def extract_face(img):
-    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    face_tensor = mtcnn(Image.fromarray(img_rgb))
+    if isinstance(img, Image.Image):
+        img_rgb = img.convert("RGB")
+    elif isinstance(img, np.ndarray):
+        if img.ndim == 3 and img.shape[2] == 3:
+            img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        else:
+            raise ValueError("Invalid image array format")
+        img_rgb = Image.fromarray(img_rgb)
+    else:
+        raise ValueError("Invalid image type passed to extract_face")
+
+    face_tensor = mtcnn(img_rgb)
     if face_tensor is not None:
         return face_tensor.unsqueeze(0).to(device)
     return None
+
 
 def get_embedding(face_tensor):
     with torch.no_grad():
