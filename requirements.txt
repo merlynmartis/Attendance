@@ -2,7 +2,6 @@ streamlit
 numpy
 opencv-python
 torch
-dlib
 Pillow
 facenet-pytorch
 pandas
