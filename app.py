@@ -86,6 +86,33 @@ def get_today_attendance():
         return records
     except:
         return []
+# Page config
+st.set_page_config(page_title="Face Attendance", layout="centered")
+
+# Set background
+def get_base64_image(image_path):
+    with open(image_path, "rb") as f:
+        encoded = base64.b64encode(f.read()).decode()
+    return encoded
+
+def set_background(image_file):
+    encoded_image = get_base64_image(image_file)
+    st.markdown(
+        f"""
+        <style>
+        .stApp {{
+            background-image: url("data:image/jpg;base64,{encoded_image}");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+set_background("background.jpg")
 
 # UI
 st.title("📸 Face Recognition Attendance")
