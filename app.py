@@ -3,7 +3,7 @@ import numpy as np
 import cv2
 import os
 import torch
-from datetime import datetime, time
+import time
 from PIL import Image
 from facenet_pytorch import MTCNN, InceptionResnetV1
 import pandas as pd
