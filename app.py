@@ -148,18 +148,16 @@ os.makedirs("data", exist_ok=True)
 
 # Utilities
 def extract_face(img):
-    if isinstance(img, Image.Image):
-        img_rgb = img.convert("RGB")
-    elif isinstance(img, np.ndarray):
+    if isinstance(img, np.ndarray):
         if img.ndim == 3 and img.shape[2] == 3:
             img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         else:
-            raise ValueError("Invalid image array format")
-        img_rgb = Image.fromarray(img_rgb)
+            raise ValueError("❌ Uploaded image must be a color image with 3 channels.")
+        pil_img = Image.fromarray(img_rgb)
     else:
-        raise ValueError("Invalid image type passed to extract_face")
+        raise ValueError("❌ Input must be a NumPy array.")
 
-    face_tensor = mtcnn(img_rgb)
+    face_tensor = mtcnn(pil_img)
     if face_tensor is not None:
         return face_tensor.unsqueeze(0).to(device)
     return None
@@ -199,16 +197,22 @@ if menu == "Register Face":
             for key in data.files:
                 if key not in st.session_state.embeddings:
                     st.session_state.embeddings[key] = data[key]
+
         image = Image.open(uploaded_picture)
-        img = np.array(image)
-        face_tensor = extract_face(img)
-        if face_tensor is not None:
-            emb = get_embedding(face_tensor)
-            st.session_state.embeddings[name] = emb
-            np.savez("data/registered_faces.npz", **st.session_state.embeddings)
-            st.success(f"✅ Face registered for {name}")
-        else:
-            st.error("❌ No face detected. Try a clearer image.")
+        img = np.array(image)  # Convert to NumPy array
+
+        try:
+            face_tensor = extract_face(img)
+            if face_tensor is not None:
+                emb = get_embedding(face_tensor)
+                st.session_state.embeddings[name] = emb
+                np.savez("data/registered_faces.npz", **st.session_state.embeddings)
+                st.success(f"✅ Face registered for {name}")
+            else:
+                st.error("❌ No face detected. Try a clearer image.")
+        except Exception as e:
+            st.error(f"❌ Failed to process image: {e}")
+
 
 elif menu == "Take Attendance":
     st.subheader("📸 Take Attendance")
