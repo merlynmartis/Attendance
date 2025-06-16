@@ -163,6 +163,7 @@ def extract_face(img):
     return None
 
 
+
 def get_embedding(face_tensor):
     with torch.no_grad():
         embedding = model(face_tensor)
