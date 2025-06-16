@@ -148,28 +148,29 @@ os.makedirs("data", exist_ok=True)
 
 # Utilities
 def extract_face(img):
-    # Convert input to PIL.Image in RGB mode
-    if isinstance(img, Image.Image):
-        img_rgb = img.convert("RGB")
-    elif isinstance(img, np.ndarray):
-        if img.ndim == 3 and img.shape[2] == 3:
-            img_rgb = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-        else:
-            raise ValueError("❌ Invalid NumPy image format. Expected (H, W, 3) for color image.")
-    else:
-        raise TypeError("❌ Unsupported image type. Must be PIL.Image or NumPy array.")
-
-    # Run MTCNN on the image
     try:
-        face_tensor = mtcnn(img_rgb)
-    except Exception as e:
-        st.error(f"❌ Face extraction failed: {e}")
-        return None
+        # Convert to PIL.Image in RGB mode
+        if isinstance(img, Image.Image):
+            img_rgb = img.convert("RGB")
+        elif isinstance(img, np.ndarray):
+            if img.ndim == 3 and img.shape[2] == 3:
+                img_rgb = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB)).convert("RGB")
+            else:
+                raise ValueError("Invalid NumPy image format. Expected shape (H, W, 3).")
+        else:
+            raise TypeError("Unsupported image type. Expected PIL.Image or NumPy array.")
 
-    if face_tensor is not None:
-        return face_tensor.unsqueeze(0).to(device)
-    else:
-        st.warning("⚠️ No face detected in the image.")
+        # Run MTCNN to detect and extract face
+        face_tensor = mtcnn(img_rgb)
+
+        if face_tensor is not None:
+            return face_tensor.unsqueeze(0).to(device)
+        else:
+            st.warning("⚠️ No face detected in the image.")
+            return None
+
+    except Exception as e:
+        st.error(f"❌ Face extraction failed: {str(e)}")
         return None
 
 
