@@ -12,7 +12,7 @@ import requests
 import gspread
 from google.oauth2.service_account import Credentials
 
-# 🟨 Page Config (must be very first Streamlit command)
+# Page Config 
 st.set_page_config(page_title="Face Attendance", layout="centered")
 
 # 🖼️ Set background image
