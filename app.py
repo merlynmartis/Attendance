@@ -112,7 +112,7 @@ def get_today_attendance():
         return []
 
 # 🌐 UI
-st.title("📸 Face Recognition Attendance")
+st.title("Face Recognition Attendance")
 
 from streamlit_autorefresh import st_autorefresh
 from zoneinfo import ZoneInfo
@@ -134,9 +134,9 @@ menu = st.sidebar.selectbox("Menu", [
 ])
 admin_password = st.sidebar.text_input("🔐 Admin Password", type="password")
 
-# 👤 Register Face
+# Register Face
 if menu == "Register Face":
-    st.subheader("📝 Register New Face")
+    st.subheader("Register New Face")
     name = st.text_input("Enter your name")
     uploaded = st.file_uploader("Upload a picture", type=["jpg", "jpeg", "png"])
 
