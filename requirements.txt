@@ -1,7 +1,7 @@
 streamlit
 numpy
 opencv-python
-torch
+torch==2.1.0
 Pillow
 facenet-pytorch
 pandas
