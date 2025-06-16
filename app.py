@@ -83,9 +83,9 @@ if menu == "Register Face":
     img = st.file_uploader("Upload Face Image", type=["jpg", "png", "jpeg"])
     if name and img:
         try:
-            image = Image.open(img)
-            img_np = np.array(image)
-            face = mtcnn(Image.fromarray(img_np))
+            image = Image.open(img).convert("RGB")  # ensure RGB
+            face = mtcnn(image)
+
             if face is not None:
                 emb = model(face.unsqueeze(0).to(device)).detach().cpu().numpy()[0]
                 st.session_state.embeddings[name] = emb
