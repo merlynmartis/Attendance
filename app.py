@@ -8,161 +8,38 @@ from PIL import Image
 from facenet_pytorch import MTCNN, InceptionResnetV1
 import pandas as pd
 import base64
+import requests
+import gspread
+from google.oauth2.service_account import Credentials
 
-# Page config
+# Google Sheets Setup
+SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
+service_account_info = st.secrets["gcp_service_account"]
+creds = Credentials.from_service_account_info(service_account_info, scopes=SCOPES)
+gc = gspread.authorize(creds)
+SHEET_ID = 'YOUR_SHEET_ID'  # Replace with your sheet ID
+
+# Constants
+INDIANA_LOCATION = (12.8697, 74.8426)
+LOCATION_RADIUS_KM = 0.5
+
+# Streamlit UI Setup
 st.set_page_config(page_title="Face Attendance", layout="centered")
-# Load and encode background image
-def get_base64_image(image_path):
-    with open(image_path, "rb") as f:
-        encoded = base64.b64encode(f.read()).decode()
-    return encoded
 
-# Set background
-def set_background(image_file):
-    encoded_image = get_base64_image(image_file)
-    st.markdown(
-        f"""
-        <style>
-        .stApp {{
-            background-image: url("data:image/jpg;base64,{encoded_image}");
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            background-attachment: fixed;
-        }}
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-
-# Apply background
-set_background("background.jpg")
-
-st.markdown("""
-<div style="
-    background-color: #ecf6f7; 
-    padding: 1.5rem; 
-    border-radius: 15px; 
-    text-align: center; 
-    box-shadow: 0 4px 10px rgba(43, 103, 119, 0.15);
-">
-    <h2 style="color: #2b6777; margin-bottom: 0.5rem;"> Presencia - A Face Attendance System</h2>
-    <p style="font-size: 20px; color: #2b6777; font-style: italic;">Presence, perfected through recognition.</p>
-
-</div>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-    <style>
-        /* Sidebar */
-        section[data-testid="stSidebar"] {
-            background-color: #e9eef5;
-            color: #1f1f1f;
-        }
-
-        /* Main App Background */
-        .stApp {
-            background-color: #f5f7fa;
-            font-family: 'Segoe UI', sans-serif;
-            color: #1f1f1f;
-        }
-
-        /* Block Container */
-        .block-container {
-            padding: 2rem 2rem;
-        }
-
-        /* Card Styling */
-        .card {
-            background-color: #ffffff;
-            border-radius: 12px;
-            padding: 2rem;
-            box-shadow: 0 4px 12px rgba(0, 102, 204, 0.1);
-            margin-bottom: 2rem;
-        }
-
-        /* Input Fields */
-        input, textarea {
-            background-color: #f0f4f8;
-            border: 1px solid #a0c4ff;
-            border-radius: 8px !important;
-            padding: 0.5em;
-            color: #1f1f1f;
-        }
-
-        /* File Uploader */
-        .stFileUploader {
-            background-color: #f0f4f8;
-            padding: 1em;
-            border-radius: 10px;
-            border: 2px dashed #0077cc;
-            color: #1f1f1f;
-        }
-
-        /* Buttons */
-        .stButton > button {
-            background-color: #0077cc;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            padding: 0.6em 1.2em;
-            transition: background-color 0.3s ease;
-        }
-
-        .stButton > button:hover {
-            background-color: #005fa3;
-        }
-
-        /* Headings */
-        h1, h2, h3 {
-            color: #004080;
-        }
-
-        /* DataFrame */
-        .stDataFrame {
-            background-color: #ffffff;
-            border-radius: 10px;
-            padding: 1em;
-        }
-
-        /* Alerts */
-        .stAlert {
-            border-radius: 10px;
-        }
-
-        /* Markdown links */
-        a {
-            color: #0077cc;
-        }
-    </style>
-""", unsafe_allow_html=True)
-
-from streamlit_autorefresh import st_autorefresh
-from datetime import datetime
-
-# Auto-refresh every 1 second (1000 ms)
-st_autorefresh(interval=30000, limit=None, key="clock_refresh")
-
-# Show the time
-current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-st.sidebar.markdown(f"🕒 **Current Time:** `{current_time}`")
-
-# Initialize models
+# Model Initialization
 device = "cuda" if torch.cuda.is_available() else "cpu"
 mtcnn = MTCNN(image_size=160, margin=20, device=device)
 model = InceptionResnetV1(pretrained='vggface2').eval().to(device)
 
-# Session state
+# Session State
 if "embeddings" not in st.session_state:
     st.session_state.embeddings = {}
 if "attendance" not in st.session_state:
     st.session_state.attendance = []
 
-# Directory
 os.makedirs("data", exist_ok=True)
 
-
-# Utilities
+# Utility Functions
 def extract_face(img):
     img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     face_tensor = mtcnn(Image.fromarray(img_rgb))
@@ -170,55 +47,81 @@ def extract_face(img):
         return face_tensor.unsqueeze(0).to(device)
     return None
 
-
 def get_embedding(face_tensor):
     with torch.no_grad():
         embedding = model(face_tensor)
     return embedding[0].cpu().numpy()
 
-
 def is_match(known, candidate, thresh=0.9):
     return np.linalg.norm(known - candidate) < thresh
 
+def get_user_location():
+    try:
+        response = requests.get("https://ipinfo.io/json")
+        loc = response.json()["loc"].split(',')
+        return float(loc[0]), float(loc[1])
+    except:
+        return None
 
-menu = st.sidebar.selectbox("Select Action",
-                            ["Register Face", "Take Attendance", "Download Attendance Sheet", "Clear Attendance"])
+def haversine(loc1, loc2):
+    from math import radians, sin, cos, sqrt, atan2
+    R = 6371
+    lat1, lon1 = map(radians, loc1)
+    lat2, lon2 = map(radians, loc2)
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
+    return R * 2 * atan2(sqrt(a), sqrt(1 - a))
 
+def is_within_location(user_loc):
+    if user_loc is None:
+        return False
+    return haversine(user_loc, INDIANA_LOCATION) <= LOCATION_RADIUS_KM
+
+def append_attendance(name, date, time):
+    try:
+        try:
+            worksheet = gc.open_by_key(SHEET_ID).worksheet(date)
+        except gspread.exceptions.WorksheetNotFound:
+            worksheet = gc.open_by_key(SHEET_ID).add_worksheet(title=date, rows="1000", cols="3")
+            worksheet.append_row(["Name", "Date", "Time"])
+        worksheet.append_row([name, date, time])
+        return True
+    except Exception as e:
+        st.error(f"❌ Failed to write to Google Sheet: {e}")
+        return False
+
+# UI Logic
+menu = st.sidebar.selectbox("Select Action", ["Register Face", "Take Attendance"])
 admin_password = st.sidebar.text_input("🔐 Admin Password", type="password")
 
-with st.container():
-    if menu == "Register Face":
-        st.markdown('<h3 style="text-align: center; color: #2b6777;"> Register New Face</h3>', unsafe_allow_html=True)
-        name = st.text_input("Enter your name")
-        uploaded_picture = st.file_uploader("Upload a picture", type=["jpg", "jpeg", "png"])
+if menu == "Register Face":
+    st.header("📝 Register New Face")
+    name = st.text_input("Enter your name")
+    uploaded = st.file_uploader("Upload a picture", type=["jpg", "jpeg", "png"])
+    
+    if uploaded and name:
+        image = Image.open(uploaded)
+        img = np.array(image)
+        face_tensor = extract_face(img)
 
-
-        registered_names = list(st.session_state.embeddings.keys())
-        if registered_names:
-            st.markdown("### 👥 Registered Users")
-            for name in registered_names:
-                st.markdown(f"- **{name}**")
+        if face_tensor is not None:
+            emb = get_embedding(face_tensor)
+            st.session_state.embeddings[name] = emb
+            np.savez("data/registered_faces.npz", **st.session_state.embeddings)
+            st.success(f"✅ Registered face for {name}")
         else:
-            st.info("No users registered yet.")
+            st.error("❌ No face detected.")
 
-        if uploaded_picture and name:
-            image = Image.open(uploaded_picture)
-            img = np.array(image)
-            face_tensor = extract_face(img)
+elif menu == "Take Attendance":
+    st.header("📷 Take Attendance")
+    uploaded = st.camera_input("Capture your face")
 
-            if face_tensor is not None:
-                emb = get_embedding(face_tensor)
-                st.session_state.embeddings[name] = emb
-                np.savez("data/registered_faces.npz", **st.session_state.embeddings)
-                st.success(f"✅ Face registered for {name}")
-            else:
-                st.error("❌ No face detected. Try a clearer image.")
-
-    elif menu == "Take Attendance":
-        st.subheader("🧑‍💼 Take Attendance")
-        uploaded = st.camera_input("Capture your face")
-
-        if uploaded:
+    if uploaded:
+        user_loc = get_user_location()
+        if not is_within_location(user_loc):
+            st.error("📍 You are not within Indiana Hospital. Attendance denied.")
+        else:
             file_bytes = np.asarray(bytearray(uploaded.read()), dtype=np.uint8)
             img = cv2.imdecode(file_bytes, 1)
             face_tensor = extract_face(img)
@@ -233,61 +136,19 @@ with st.container():
                 for name, db_emb in st.session_state.embeddings.items():
                     if is_match(db_emb, emb):
                         now = datetime.now()
-                        record = {"Name": name, "Date": now.strftime("%Y-%m-%d"), "Time": now.strftime("%H:%M:%S")}
+                        date = now.strftime("%Y-%m-%d")
+                        time = now.strftime("%H:%M:%S")
+                        record = {"Name": name, "Date": date, "Time": time}
+
                         if record not in st.session_state.attendance:
                             st.session_state.attendance.append(record)
-                            st.success(f"🙌 Welcome {name}, attendance marked.")
+                            uploaded = append_attendance(name, date, time)
+                            if uploaded:
+                                st.success(f"✅ Attendance marked for {name}")
                         else:
-                            st.info(f"📌 Attendance already marked for {name}")
+                            st.info(f"ℹ️ Attendance already marked.")
                         break
                 else:
-                    st.warning("⚠️ Face not recognized. Try again.")
+                    st.warning("⚠️ Face not recognized.")
             else:
                 st.error("❌ No face detected.")
-
-
-    elif menu == "Download Attendance Sheet":
-
-        st.subheader("📥 Download Attendance Sheet")
-
-        if admin_password == "secret123":  # Replace with your real password
-
-            if st.session_state.attendance:
-
-                df = pd.DataFrame(st.session_state.attendance)
-
-                st.dataframe(df)
-
-                csv = df.to_csv(index=False).encode('utf-8')
-
-                st.download_button("Download CSV", csv, "attendance.csv", "text/csv")
-
-            else:
-
-                st.info("📝 No attendance data to download.")
-
-        else:
-
-            st.warning("🔒 Enter admin password in the sidebar to download attendance.")
-
-
-
-
-    elif menu == "Clear Attendance":
-
-        st.subheader("🧹 Clear Attendance Records")
-
-        if admin_password == "secret123":  # Same password as above
-
-            if st.button("Clear All Records"):
-                st.session_state.attendance.clear()
-
-                pd.DataFrame(columns=["Name", "Date", "Time"]).to_csv("attendance.csv", index=False)
-
-                st.success("✅ All attendance records cleared.")
-
-        else:
-
-            st.warning("🔒 Enter admin password in the sidebar to clear records.")
-
-    st.markdown('</div>', unsafe_allow_html=True)
