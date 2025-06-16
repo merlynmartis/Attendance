@@ -147,9 +147,8 @@ menu = st.sidebar.selectbox("Menu", [
 admin_password = st.sidebar.text_input("🔐 Admin Password", type="password")
 
 # Register Face
-# Register
 if menu == "Register Face":
-    st.subheader("📝 Register New Face")
+    st.markdown('<h3 style="text-align: center; color: #2b6777;"> Register New Face</h3>', unsafe_allow_html=True)
     name = st.text_input("Enter your name")
     uploaded = st.file_uploader("Upload a picture", type=["jpg", "jpeg", "png"])
 
@@ -158,18 +157,8 @@ if menu == "Register Face":
         face_tensor = extract_face(img)
         if face_tensor is not None:
             emb = get_embedding(face_tensor)
-
-            # ✅ Load existing registered faces
-            if os.path.exists("data/registered_faces.npz"):
-                with np.load("data/registered_faces.npz") as data:
-                    st.session_state.embeddings = {n: data[n] for n in data.files}
-
-            # ✅ Add or update the new face
             st.session_state.embeddings[name] = emb
-
-            # ✅ Save all embeddings
             np.savez("data/registered_faces.npz", **st.session_state.embeddings)
-
             st.success(f"✅ Registered {name}")
         else:
             st.error("❌ No face detected.")
