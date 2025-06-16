@@ -76,27 +76,50 @@ if "embeddings" not in st.session_state:
         data = np.load("data/registered_faces.npz")
         st.session_state.embeddings = {k: data[k] for k in data.files}
 
-# Register Face
-if menu == "Register Face":
-    st.header("👤 Register Face")
-    name = st.text_input("Enter Name")
-    img = st.file_uploader("Upload Face Image", type=["jpg", "png", "jpeg"])
-    if name and img:
-        try:
-            image = Image.open(img)
-            img_np = np.array(image)
-            face = mtcnn(Image.fromarray(img_np))
+elif menu == "Register Face":
+    st.markdown('<h3 style="text-align: center; color: #2b6777;"> Register New Face via Webcam</h3>', unsafe_allow_html=True)
+    name = st.text_input("Enter your name")
 
+    if name and st.button("📷 Capture Face"):
+        st.info("Initializing webcam. Please wait...")
 
-            if face is not None:
-                emb = model(face.unsqueeze(0).to(device)).detach().cpu().numpy()[0]
-                st.session_state.embeddings[name] = emb
+        cap = cv2.VideoCapture(0)
+        stframe = st.empty()
+        message = st.empty()
+        timeout = time.time() + 20  # 20 seconds to capture
+
+        registered = False
+
+        while time.time() < timeout:
+            ret, frame = cap.read()
+            if not ret:
+                message.error("❌ Failed to access webcam.")
+                break
+
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            pil_img = Image.fromarray(rgb_frame)
+
+            face_tensor = mtcnn(pil_img)
+
+            stframe.image(frame, channels="BGR", caption="Align your face...")
+
+            if face_tensor is not None:
+                embedding = get_embedding(face_tensor)
+                st.session_state.embeddings[name] = embedding
+
+                # Save to .npz
                 np.savez("data/registered_faces.npz", **st.session_state.embeddings)
-                st.success(f"✅ {name} registered")
-            else:
-                st.warning("❌ No face detected.")
-        except Exception as e:
-            st.error(f"Error: {e}")
+
+                message.success(f"✅ Face registered for {name}")
+                registered = True
+                break
+
+        cap.release()
+        stframe.empty()
+
+        if not registered:
+            message.warning("⚠️ Face not detected. Try again.")
+
 
 # Take Attendance
 elif menu == "Take Attendance":
