@@ -148,20 +148,13 @@ os.makedirs("data", exist_ok=True)
 
 # Utilities
 def extract_face(img):
-    # Step 1: Normalize to PIL.Image
-    if isinstance(img, np.ndarray):
-        if img.ndim == 3 and img.shape[2] == 3:
-            img_pil = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-        else:
-            raise ValueError("Invalid image format (not 3-channel BGR array)")
-    elif isinstance(img, Image.Image):
-        img_pil = img.convert("RGB")
-    else:
-        raise ValueError("Unsupported image type")
-
-    face_tensor = mtcnn(img_pil)
-    if face_tensor is not None:
-        return face_tensor.unsqueeze(0).to(device)
+    try:
+        img_pil = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+        face_tensor = mtcnn(img_pil)
+        if face_tensor is not None:
+            return face_tensor.unsqueeze(0).to(device)
+    except Exception as e:
+        st.error(f"❌ Face extraction failed: {e}")
     return None
 
 
