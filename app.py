@@ -148,21 +148,22 @@ os.makedirs("data", exist_ok=True)
 
 # Utilities
 def extract_face(img):
-    if isinstance(img, Image.Image):
-        img_rgb = img.convert("RGB")
-    elif isinstance(img, np.ndarray):
+    # Step 1: Normalize to PIL.Image
+    if isinstance(img, np.ndarray):
         if img.ndim == 3 and img.shape[2] == 3:
-            img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            img_pil = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
         else:
-            raise ValueError("Invalid image array format")
-        img_rgb = Image.fromarray(img_rgb)
+            raise ValueError("Invalid image format (not 3-channel BGR array)")
+    elif isinstance(img, Image.Image):
+        img_pil = img.convert("RGB")
     else:
-        raise ValueError("Invalid image type passed to extract_face")
+        raise ValueError("Unsupported image type")
 
-    face_tensor = mtcnn(img_rgb)
+    face_tensor = mtcnn(img_pil)
     if face_tensor is not None:
         return face_tensor.unsqueeze(0).to(device)
     return None
+
 
 
 def get_embedding(face_tensor):
@@ -249,8 +250,9 @@ elif menu == "Take Attendance":
                     break
 
                 # Face detection and extraction
-                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                face_tensor = mtcnn(rgb)
+                img_pil = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+                face_tensor = mtcnn(img_pil)
+
 
                 if face_tensor is not None:
                     emb = resnet(face_tensor.unsqueeze(0)).detach().numpy()
