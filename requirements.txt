@@ -8,3 +8,4 @@ pandas
 geopy
 gspread
 google-auth
+streamlit-autorefresh
