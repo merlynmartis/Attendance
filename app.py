@@ -32,10 +32,11 @@ def save_embeddings(embeddings):
 # Extract face tensor
 def extract_face(image):
     try:
-        if not isinstance(image, Image.Image):
-            image = Image.fromarray(image).convert("RGB")
-        else:
-            image = image.convert("RGB")
+        # Always convert to PIL Image (facenet_pytorch requires PIL)
+        if isinstance(image, np.ndarray):
+            image = Image.fromarray(image)
+        image = image.convert("RGB")
+        
         face = mtcnn(image)
         if face is not None:
             return face.unsqueeze(0).to(device)
@@ -76,9 +77,10 @@ if menu == "Register Face":
     name = st.text_input("Enter your name")
     uploaded_picture = st.file_uploader("Upload a picture", type=["jpg", "jpeg", "png"])
 
-    if uploaded_picture and name:
+    if uploaded_picture:
         image = Image.open(uploaded_picture)
         face_tensor = extract_face(image)
+
 
         if face_tensor is not None:
             embedding = get_embedding(face_tensor).cpu().detach().numpy()
