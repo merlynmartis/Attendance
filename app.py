@@ -111,8 +111,10 @@ def get_today_attendance():
     except:
         return []
 
-# 🌐 UI
-st.title("Face Recognition Attendance")
+st.markdown("""
+    <h1 style='text-align: center; color: white;'>Presencia</h1>
+""", unsafe_allow_html=True)
+
 
 from streamlit_autorefresh import st_autorefresh
 from zoneinfo import ZoneInfo
