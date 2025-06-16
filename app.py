@@ -4,7 +4,7 @@ import cv2
 import os
 import torch
 import random
-from datetime import datetime
+from datetime import time
 from PIL import Image
 from facenet_pytorch import MTCNN, InceptionResnetV1
 import pandas as pd
@@ -200,249 +200,85 @@ if menu == "Register Face":
             st.error("❌ No face detected. Try a clearer image.")
 
 elif menu == "Take Attendance":
-    st.subheader("Take Attendance")
+    st.subheader("📸 Take Attendance")
 
-    import mediapipe as mp
-    import time
+    # Load MTCNN and FaceNet
+    mtcnn = MTCNN(image_size=160, margin=20, keep_all=False, min_face_size=40)
+    resnet = InceptionResnetV1(pretrained="vggface2").eval()
 
-    mp_face_mesh = mp.solutions.face_mesh
-    face_mesh = mp_face_mesh.FaceMesh(static_image_mode=False, max_num_faces=1, refine_landmarks=True)
+    # Load stored embeddings
+    if "embeddings" not in st.session_state:
+        st.session_state.embeddings = {}
+        if os.path.exists("data/registered_faces.npz"):
+            data = np.load("data/registered_faces.npz")
+            st.session_state.embeddings = {name: data[name] for name in data.files}
 
-    LEFT_EYE = [33, 160, 158, 133, 153, 144]
-    RIGHT_EYE = [362, 385, 387, 263, 373, 380]
-    MOUTH = [78, 308, 13, 14, 312, 82]
+    # Get user location
+    location = get_user_location()
+    if location is None:
+        st.warning("⚠️ Could not detect location.")  # You can remove this later
+        location = INDIANA_LOCATION  # Fake location to allow webcam test
 
-    def euclidean(p1, p2):
-        return np.linalg.norm(np.array(p1) - np.array(p2))
-
-    def eye_aspect_ratio(landmarks, eye_points):
-        p1 = landmarks[eye_points[0]]
-        p2 = landmarks[eye_points[1]]
-        p3 = landmarks[eye_points[2]]
-        p4 = landmarks[eye_points[3]]
-        p5 = landmarks[eye_points[4]]
-        p6 = landmarks[eye_points[5]]
-        vertical1 = euclidean(p2, p6)
-        vertical2 = euclidean(p3, p5)
-        horizontal = euclidean(p1, p4)
-        return (vertical1 + vertical2) / (2.0 * horizontal)
-
-    def mouth_aspect_ratio(landmarks):
-        top_lip = landmarks[13]
-        bottom_lip = landmarks[14]
-        left_corner = landmarks[78]
-        right_corner = landmarks[308]
-        vertical = euclidean(top_lip, bottom_lip)
-        horizontal = euclidean(left_corner, right_corner)
-        return vertical / horizontal
-
-    def head_yaw(landmarks, frame_width):
-        nose_tip = landmarks[1]
-        left_cheek = landmarks[234]
-        right_cheek = landmarks[454]
-        center_x = (left_cheek[0] + right_cheek[0]) / 2
-        diff = nose_tip[0] - center_x
-        norm_diff = diff / frame_width
-        return norm_diff
-
-    EAR_THRESH = 0.23
-    EAR_CONSEC_FRAMES = 3
-    MOUTH_OPEN_THRESH = 0.6
-    HEAD_TURN_THRESH = 0.08
-
-
-    if "attendance_started" not in st.session_state:
-        st.session_state.attendance_started = False
-    if "challenges" not in st.session_state:
-        st.session_state.challenges = []
-    if "current_task_index" not in st.session_state:
-        st.session_state.current_task_index = 0
-    if "task_0_done" not in st.session_state:
-        st.session_state.task_0_done = False
-    if "task_1_done" not in st.session_state:
-        st.session_state.task_1_done = False
-
-    if not st.session_state.attendance_started:
-        location = get_user_location()
-        if location is None:
-            st.error("Unable to determine your location. Please check your internet.")
-        elif geodesic(location, INDIANA_LOCATION).km > LOCATION_RADIUS_KM:
-            st.warning("You must be at Indiana Hospital & Heart Institute, Mangalore to mark attendance.")
-        else:
-            if st.button("📸 Start Attendance"):
-                pool = ["blink", "turn_head", "open_mouth"]
-                st.session_state.challenges = random.sample(pool, 2)
-                st.session_state.current_task_index = 0
-                st.session_state.task_0_done = False
-                st.session_state.task_1_done = False
-                st.session_state.attendance_started = True
-                st.rerun()
-
-        if st.button("📸 Start Attendance"):
-            pool = ["blink", "turn_head", "open_mouth"]
-            st.session_state.challenges = random.sample(pool, 2)
-            st.session_state.current_task_index = 0
-            st.session_state.task_0_done = False
-            st.session_state.task_1_done = False
-            st.session_state.attendance_started = True
-            st.rerun()
-        else:
-            st.info("Click the '📸 Start Attendance' button to begin.")
+    if geodesic(location, INDIANA_LOCATION).km > LOCATION_RADIUS_KM:
+        st.warning("You must be at Indiana Hospital & Heart Institute, Mangalore to mark attendance.")
 
     else:
-        stframe = st.empty()
-        message_placeholder = st.empty()
+        if st.button("🎥 Start Webcam"):
+            st.info("Initializing webcam. Please wait...")
+            cap = cv2.VideoCapture(0)
+            stframe = st.empty()
+            message_placeholder = st.empty()
+            timeout = time.time() + 20  # 20-second timeout
 
-        cap = cv2.VideoCapture(0)
+            matched_name = None
+            while time.time() < timeout:
+                ret, frame = cap.read()
+                if not ret:
+                    message_placeholder.error("Failed to access webcam.")
+                    break
 
-        blink_counter = 0
-        blink_frame_counter = 0
-
-        start_time = time.time()
-
-        # Guard: if index is out of range, all tasks are done
-        if st.session_state.current_task_index < len(st.session_state.challenges):
-            current_task = st.session_state.challenges[st.session_state.current_task_index]
-            st.markdown(f" Please perform this task: **{current_task.replace('_', ' ').title()}**")
-        else:
-            # All tasks done, mark attendance and reset
-            cap.release()
-            stframe.empty()
-            message_placeholder.info("⏳ Marking your attendance... Please wait.")
-
-            ret2, frame2 = cv2.VideoCapture(0).read()
-            cv2.VideoCapture(0).release()
-
-            if ret2:
-                face_tensor = extract_face(frame2)
-                matched_name = None
+                # Face detection and extraction
+                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                face_tensor = mtcnn(rgb)
 
                 if face_tensor is not None:
-                    emb = get_embedding(face_tensor)
-
-                    if not st.session_state.embeddings and os.path.exists("data/registered_faces.npz"):
-                        data = np.load("data/registered_faces.npz")
-                        st.session_state.embeddings = {name: data[name] for name in data.files}
-
+                    emb = resnet(face_tensor.unsqueeze(0)).detach().numpy()
                     for name, db_emb in st.session_state.embeddings.items():
-                        if is_match(db_emb, emb):
+                        dist = np.linalg.norm(emb - db_emb)
+                        if dist < 0.9:  # threshold
                             matched_name = name
                             break
 
-                if matched_name:
-                    now = datetime.now(ist)
-                    # Check if user already marked attendance today (optional: you can skip or implement this check)
-                    today_records = get_today_attendance()
-                    already_marked = any(rec["Name"] == matched_name for rec in today_records)
-
-                    if not already_marked:
-                        success = append_attendance(matched_name, now.strftime("%Y-%m-%d"), now.strftime("%H:%M:%S"))
-                        if success:
-                            message_placeholder.success(f" Your attendance is marked, {matched_name}.")
-                        else:
-                            message_placeholder.error("Failed to mark attendance in Google Sheets.")
+                    if matched_name:
+                        message_placeholder.success(f"✅ Face matched: {matched_name}")
+                        break
                     else:
-                        message_placeholder.info(f" {matched_name}, you have already marked attendance today.")
-                else:
-                    message_placeholder.warning("⚠️ Face not recognized. Please try again.")
-            else:
-                message_placeholder.error(" Failed to capture face for attendance.")
+                        message_placeholder.warning("⚠️ Face not recognized. Try again.")
 
-            # Reset session states
-            st.session_state.attendance_started = False
-            st.session_state.challenges = []
-            st.session_state.current_task_index = 0
-            st.session_state.task_0_done = False
-            st.session_state.task_1_done = False
+                stframe.image(frame, channels="BGR", caption="Capturing face...")
 
-            st.rerun()
+            cap.release()
+            stframe.empty()
 
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
-                st.error(" Failed to capture video.")
-                break
+            # Mark attendance if matched
+            if matched_name:
+                now = datetime.now(ist)
+                today_records = get_today_attendance()
+                already_marked = any(rec["Name"] == matched_name for rec in today_records)
 
-            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            results = face_mesh.process(rgb_frame)
-
-            task_done = False
-
-            if results.multi_face_landmarks:
-                face_landmarks = results.multi_face_landmarks[0]
-                landmarks = [(lm.x * frame.shape[1], lm.y * frame.shape[0]) for lm in face_landmarks.landmark]
-
-                if current_task == "blink":
-                    left_ear = eye_aspect_ratio(landmarks, LEFT_EYE)
-                    right_ear = eye_aspect_ratio(landmarks, RIGHT_EYE)
-                    avg_ear = (left_ear + right_ear) / 2.0
-
-                    if avg_ear < EAR_THRESH:
-                        blink_frame_counter += 1
+                if not already_marked:
+                    success = append_attendance(
+                        matched_name,
+                        now.strftime("%Y-%m-%d"),
+                        now.strftime("%H:%M:%S")
+                    )
+                    if success:
+                        message_placeholder.success(f"🎉 Attendance marked for {matched_name}")
                     else:
-                        if blink_frame_counter >= EAR_CONSEC_FRAMES:
-                            blink_counter += 1
-                        blink_frame_counter = 0
-
-                    cv2.putText(frame, f"Blinks: {blink_counter}", (30, 50),
-                                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-
-                    if blink_counter >= 1:
-                        task_done = True
-
-                elif current_task == "open_mouth":
-                    mar = mouth_aspect_ratio(landmarks)
-                    cv2.putText(frame, f"Mouth Aspect Ratio: {mar:.2f}", (30, 50),
-                                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                    if mar > MOUTH_OPEN_THRESH:
-                        task_done = True
-
-
-                elif current_task == "turn_head":
-
-                    yaw = head_yaw(landmarks, frame.shape[1])
-
-                    cv2.putText(frame, f"Head Yaw: {yaw:.3f}", (30, 50),
-
-                                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-
-                    if abs(yaw) > HEAD_TURN_THRESH:  # ✅ Corrected logic
-
-                        task_done = True
-
-            else:
-                cv2.putText(frame, "No face detected", (30, 50),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-
-            stframe.image(frame, channels="BGR")
-
-            # Timeout per task = 20 seconds
-            if time.time() - start_time > 15:
-                cap.release()
-                stframe.empty()
-                message_placeholder.warning(" Time out. You didn't complete the task.")
-                st.session_state.attendance_started = False
-                st.session_state.challenges = []
-                st.session_state.current_task_index = 0
-                st.session_state.task_0_done = False
-                st.session_state.task_1_done = False
-                break
-
-            if task_done:
-                st.success(
-                    f"✅ Task {st.session_state.current_task_index + 1} completed: **{current_task.replace('_', ' ').title()}**")
-
-                if st.session_state.current_task_index == 0:
-                    st.session_state.task_0_done = True
+                        message_placeholder.error("❌ Failed to update Google Sheets.")
                 else:
-                    st.session_state.task_1_done = True
+                    message_placeholder.info(f"ℹ️ Attendance already marked for {matched_name} today.")
 
-                st.session_state.current_task_index += 1
-                cap.release()
-                stframe.empty()
-                message_placeholder.empty()
-                time.sleep(4)
-                st.rerun()
 
 elif menu == "View Attendance Sheet":
     st.subheader("📅 Today's Attendance")
