@@ -112,7 +112,7 @@ def get_today_attendance():
         return []
 
 st.markdown("""
-    <h1 style='text-align: center; color: white;'>Presencia</h1>
+    <h1 style='text-align: center; color: black;'>Presencia</h1>
 """, unsafe_allow_html=True)
 
 
