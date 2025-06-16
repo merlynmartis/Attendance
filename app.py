@@ -134,7 +134,7 @@ admin_password = st.sidebar.text_input("🔐 Admin Password", type="password")
 
 # Load models
 device = "cuda" if torch.cuda.is_available() else "cpu"
-mtcnn = MTCNN(image_size=160, margin=20,keep_all=False, device=device)
+mtcnn = MTCNN(image_size=160, margin=20, device=device)
 model = InceptionResnetV1(pretrained='vggface2').eval().to(device)
 
 # Session state
@@ -148,15 +148,21 @@ os.makedirs("data", exist_ok=True)
 
 # Utilities
 def extract_face(img):
-    try:
-        img_pil = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-        face_tensor = mtcnn(img_pil)
-        if face_tensor is not None:
-            return face_tensor.unsqueeze(0).to(device)
-    except Exception as e:
-        st.error(f"❌ Face extraction failed: {e}")
-    return None
+    if isinstance(img, Image.Image):
+        img_rgb = img.convert("RGB")
+    elif isinstance(img, np.ndarray):
+        if img.ndim == 3 and img.shape[2] == 3:
+            img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        else:
+            raise ValueError("Invalid image array format")
+        img_rgb = Image.fromarray(img_rgb)
+    else:
+        raise ValueError("Invalid image type passed to extract_face")
 
+    face_tensor = mtcnn(img_rgb)
+    if face_tensor is not None:
+        return face_tensor.unsqueeze(0).to(device)
+    return None
 
 
 def get_embedding(face_tensor):
@@ -243,9 +249,8 @@ elif menu == "Take Attendance":
                     break
 
                 # Face detection and extraction
-                img_pil = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-                face_tensor = mtcnn(img_pil)
-
+                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                face_tensor = mtcnn(rgb)
 
                 if face_tensor is not None:
                     emb = resnet(face_tensor.unsqueeze(0)).detach().numpy()
