@@ -114,6 +114,18 @@ def get_today_attendance():
 # 🌐 UI
 st.title("📸 Face Recognition Attendance")
 
+from streamlit_autorefresh import st_autorefresh
+from zoneinfo import ZoneInfo
+
+# Refresh clock every 60 seconds
+st_autorefresh(interval=60000, limit=None, key="clock_refresh")
+
+# Set IST timezone
+ist = ZoneInfo("Asia/Kolkata")
+current_time = datetime.now(ist).strftime("%Y-%m-%d %H:%M")
+
+# Display time in sidebar
+st.sidebar.markdown(f"🕒 **Current Time (IST):** `{current_time}`")
 menu = st.sidebar.selectbox("Menu", [
     "Register Face",
     "Take Attendance",
