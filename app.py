@@ -221,6 +221,7 @@ if menu == "Register Face":
 
 elif menu == "Take Attendance":
     st.subheader("📸 Take Attendance")
+    get_browser_location()  # Trigger browser location collection
     captured = st.camera_input("Take your photo")
     if captured:
         user_loc = get_user_location()
