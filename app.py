@@ -211,7 +211,10 @@ elif menu == "Take Attendance":
 elif menu == "View Attendance Sheet":
     st.subheader("📅 Today's Attendance")
     records = get_today_attendance()
-    st.dataframe(pd.DataFrame(records)) if records else st.info("📭 No attendance found for today.")
+    if records:
+        st.dataframe(pd.DataFrame(records))
+    else:
+        st.info("📭 No attendance found for today.")
 
 elif menu == "View Registered Users":
     st.subheader("👥 Registered Users")
