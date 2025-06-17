@@ -119,26 +119,25 @@ def get_browser_location():
     components.html(
         """
         <script>
-        const waitForInput = setInterval(() => {
+        function sendCoords() {
             const input = window.parent.document.querySelector('input[data-testid="stTextInput"]');
-            if (input) {
-                clearInterval(waitForInput);
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        const coords = position.coords.latitude + "," + position.coords.longitude;
-                        input.value = coords;
-                        input.dispatchEvent(new Event("input", { bubbles: true }));
-                    },
-                    (error) => {
-                        input.value = "error:" + error.message;
-                        input.dispatchEvent(new Event("input", { bubbles: true }));
-                    }
-                );
-            }
-        }, 500);
+            if (!input) return;
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const coords = position.coords.latitude + "," + position.coords.longitude;
+                    input.value = coords;
+                    input.dispatchEvent(new Event("input", { bubbles: true }));
+                },
+                (error) => {
+                    input.value = "error:" + error.message;
+                    input.dispatchEvent(new Event("input", { bubbles: true }));
+                }
+            );
+        }
+        setTimeout(sendCoords, 1000);
         </script>
         """,
-        height=0,
+        height=0
     )
 
 # Inject JS first
@@ -232,7 +231,9 @@ elif menu == "Take Attendance":
         user_loc = get_user_location()
 
         if not user_loc:
-            st.warning("📍 Waiting for location permission or detection...")
+            st.warning("📍 Waiting for location permission or detection... Please allow location access in your browser.")
+            st.stop()
+
         elif not is_within_location(user_loc):
             st.error("🚫 You are not inside Indiana Hospital.")
         else:
