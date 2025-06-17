@@ -124,7 +124,7 @@ def is_match(known, candidate, thresh=0.9):
 
 # --------------- Location Logic ----------------
 INDIANA_LOCATION = (12.8697, 74.8426)
-LOCATION_RADIUS_KM = 0.5
+LOCATION_RADIUS_KM = 0.1
 
 import streamlit.components.v1 as components
 
