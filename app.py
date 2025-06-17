@@ -224,12 +224,6 @@ elif menu == "View Registered Users":
         if names:
             for name in names:
                 st.markdown(f"- {name}")
-            if admin_password == "secret123":
-                if st.button("❌ Clear Registered Users"):
-                    os.remove(REGISTERED_PATH)
-                    st.session_state.embeddings = {}
-                    upload_file_to_drive(REGISTERED_PATH, "registered_faces.npz")
-                    st.success("✅ Cleared all users.")
         else:
             st.info("📭 No users found.")
     else:
