@@ -141,7 +141,7 @@ menu = st.sidebar.selectbox("Menu", ["Register Face", "Take Attendance", "View A
 # --------------- Functional Menus ----------------
 
 if menu == "Register Face":
-    st.subheader("📝 Register New Face")
+    st.subheader("Register New Face")
     name = st.text_input("Enter your name")
     uploaded = st.file_uploader("Upload a picture", type=["jpg", "jpeg", "png"])
     if uploaded and name:
