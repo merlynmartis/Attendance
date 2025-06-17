@@ -224,15 +224,6 @@ if menu == "Register Face":
 
 elif menu == "Take Attendance":
     st.subheader("📸 Take Attendance")
-    
-    # Trigger browser-based geolocation
-    get_browser_location()
-
-    # Input that will be auto-filled by the JS
-    st.text_input("🔍 Location (autofilled)", key="user_coords")
-    
-    # Display debug info
-    st.markdown(f"📍 Debug Location: `{st.session_state.get('user_coords', 'Not yet detected')}`")
 
     # Show camera input
     captured = st.camera_input("Take your photo")
