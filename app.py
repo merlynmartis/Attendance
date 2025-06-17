@@ -110,64 +110,53 @@ def is_match(known, candidate, thresh=0.9):
     return np.linalg.norm(known - candidate) < thresh
 
 # ---------------- Location Setup ----------------
-# ---------------- Location Setup ----------------
-INDIANA_LOCATION = (12.8678746, 74.8428772)  # Verified coords
+INDIANA_LOCATION = (12.8678746, 74.8428772)  # Indiana Hospital
 LOCATION_RADIUS_KM = 0.7
+LOCATION_KEY = "user_coords"
 
 # Inject HTML5 Geolocation JavaScript
-def get_browser_location():
-    components.html(
-        """
-        <script>
-        function requestLocation() {
-            const input = window.parent.document.querySelector('input[data-testid="stTextInput"]');
-            if (!input) return;
-            
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        const coords = position.coords.latitude + "," + position.coords.longitude;
-                        input.value = coords;
-                        input.dispatchEvent(new Event("input", { bubbles: true }));
-                    },
-                    (error) => {
-                        input.value = "error:" + error.message;
-                        input.dispatchEvent(new Event("input", { bubbles: true }));
-                    },
-                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-                );
-            } else {
-                input.value = "error:Geolocation not supported";
-                input.dispatchEvent(new Event("input", { bubbles: true }));
-            }
-        }
+st.markdown("📍 **Location will auto-fill below**")
+st.text_input("", key=LOCATION_KEY, label_visibility="collapsed")
 
-        window.onload = requestLocation;
-        </script>
-        """,
-        height=0
-    )
+components.html(f"""
+<script>
+const waitForInput = setInterval(() => {{
+    const input = window.parent.document.querySelector('input[data-testid="stTextInput"][aria-label="{LOCATION_KEY}"]');
+    if (input) {{
+        clearInterval(waitForInput);
+        navigator.geolocation.getCurrentPosition(
+            (position) => {{
+                const coords = position.coords.latitude + "," + position.coords.longitude;
+                input.value = coords;
+                input.dispatchEvent(new Event("input", {{ bubbles: true }}));
+            }},
+            (error) => {{
+                input.value = "error:" + error.message;
+                input.dispatchEvent(new Event("input", {{ bubbles: true }}));
+            }}
+        );
+    }}
+}}, 500);
+</script>
+""", height=0)
 
-# Inject JS first
-get_browser_location()
+coords = st.session_state.get(LOCATION_KEY, "")
+if coords.startswith("error:"):
+    st.error("⚠️ " + coords.split("error:")[1])
+elif coords:
+    st.success(f"📍 Location Detected: `{coords}`")
+else:
+    st.info("🔄 Waiting for location detection...")
 
-# Bind location input (this is autofilled by JS)
-st.text_input("🔍 Location (autofilled)", key="user_coords")
-
-# Show debug info
-st.markdown(f"📍 Debug Location: `{st.session_state.get('user_coords', 'Not yet detected')}`")
-
-# Utility: Extract user location from session state
 def get_user_location():
-    if "user_coords" in st.session_state and st.session_state.user_coords:
+    if coords and not coords.startswith("error:"):
         try:
-            lat, lon = map(float, st.session_state.user_coords.split(","))
+            lat, lon = map(float, coords.split(","))
             return lat, lon
         except:
             return None
     return None
 
-# Utility: Haversine formula to calculate distance
 def haversine(loc1, loc2):
     from math import radians, sin, cos, sqrt, atan2
     R = 6371
@@ -177,10 +166,8 @@ def haversine(loc1, loc2):
     a = sin(dlat/2)**2 + cos(lat1)*cos(lat2)*sin(dlon/2)**2
     return R * 2 * atan2(sqrt(a), sqrt(1 - a))
 
-# Check whether user is within radius
 def is_within_location(user_loc):
     return haversine(user_loc, INDIANA_LOCATION) <= LOCATION_RADIUS_KM if user_loc else False
-
 
 # ---------------- Attendance ----------------
 def append_attendance(name, date, time):
@@ -231,26 +218,21 @@ if menu == "Register Face":
 
 elif menu == "Take Attendance":
     st.subheader("📸 Take Attendance")
-
-    # Show camera input
     captured = st.camera_input("Take your photo")
-    
+
     if captured:
         user_loc = get_user_location()
 
         if not user_loc:
             st.warning("📍 Waiting for location permission or detection... Please allow location access in your browser.")
             st.stop()
-
         elif not is_within_location(user_loc):
             st.error("🚫 You are not inside Indiana Hospital.")
         else:
-            # Decode image from webcam
             file_bytes = np.asarray(bytearray(captured.read()), dtype=np.uint8)
             img = cv2.imdecode(file_bytes, 1)
-
-            # Extract face
             face_tensor = extract_face(img)
+
             if face_tensor is not None:
                 emb = get_embedding(face_tensor)
                 for name, known_emb in st.session_state.embeddings.items():
@@ -258,7 +240,6 @@ elif menu == "Take Attendance":
                         now = datetime.now()
                         date, time = now.strftime("%Y-%m-%d"), now.strftime("%H:%M:%S")
                         record = {"Name": name, "Date": date, "Time": time}
-
                         if record not in st.session_state.attendance:
                             st.session_state.attendance.append(record)
                             append_attendance(name, date, time)
@@ -270,7 +251,6 @@ elif menu == "Take Attendance":
                     st.warning("⚠️ Face not recognized.")
             else:
                 st.error("❌ No face detected.")
-
 
 elif menu == "View Attendance Sheet":
     st.subheader("📅 Today's Attendance")
