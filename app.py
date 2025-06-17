@@ -119,22 +119,30 @@ def get_browser_location():
     components.html(
         """
         <script>
-        function sendCoords() {
+        function requestLocation() {
             const input = window.parent.document.querySelector('input[data-testid="stTextInput"]');
             if (!input) return;
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const coords = position.coords.latitude + "," + position.coords.longitude;
-                    input.value = coords;
-                    input.dispatchEvent(new Event("input", { bubbles: true }));
-                },
-                (error) => {
-                    input.value = "error:" + error.message;
-                    input.dispatchEvent(new Event("input", { bubbles: true }));
-                }
-            );
+            
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const coords = position.coords.latitude + "," + position.coords.longitude;
+                        input.value = coords;
+                        input.dispatchEvent(new Event("input", { bubbles: true }));
+                    },
+                    (error) => {
+                        input.value = "error:" + error.message;
+                        input.dispatchEvent(new Event("input", { bubbles: true }));
+                    },
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                );
+            } else {
+                input.value = "error:Geolocation not supported";
+                input.dispatchEvent(new Event("input", { bubbles: true }));
+            }
         }
-        setTimeout(sendCoords, 1000);
+
+        window.onload = requestLocation;
         </script>
         """,
         height=0
