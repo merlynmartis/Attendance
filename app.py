@@ -104,28 +104,6 @@ def get_embedding(face_tensor):
 def is_match(known, candidate, thresh=0.9):
     return np.linalg.norm(known - candidate) < thresh
 
-# --------------- Location Logic ----------------
-INDIANA_LOCATION = (12.8697, 74.8426)
-LOCATION_RADIUS_KM = 0.5
-
-def get_user_location():
-    try:
-        loc = requests.get("https://ipinfo.io/json").json()['loc'].split(',')
-        return float(loc[0]), float(loc[1])
-    except:
-        return None
-
-def haversine(loc1, loc2):
-    from math import radians, sin, cos, sqrt, atan2
-    R = 6371
-    lat1, lon1 = map(radians, loc1)
-    lat2, lon2 = map(radians, loc2)
-    dlat, dlon = lat2 - lat1, lon2 - lon1
-    a = sin(dlat/2)**2 + cos(lat1)*cos(lat2)*sin(dlon/2)**2
-    return R * 2 * atan2(sqrt(a), sqrt(1 - a))
-
-def is_within_location(user_loc):
-    return haversine(user_loc, INDIANA_LOCATION) <= LOCATION_RADIUS_KM if user_loc else False
 
 # --------------- Attendance ----------------
 def append_attendance(name, date, time):
