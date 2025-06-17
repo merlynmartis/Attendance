@@ -114,21 +114,45 @@ INDIANA_LOCATION = (12.8678746, 74.8428772)  # Verified coords
 LOCATION_RADIUS_KM = 0.7
 
 # 📍 Use HTML5 browser geolocation
+import streamlit.components.v1 as components
+
 def get_browser_location():
-    js = """
-    <script>
-    navigator.geolocation.getCurrentPosition(
-        (position) => {
-            const coords = position.coords.latitude + "," + position.coords.longitude;
-            const input = window.parent.document.querySelector('input[data-testid="stTextInput"]');
-            input.value = coords;
-            input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+    components.html(
+        """
+        <script>
+        const streamlitInput = window.parent.document.querySelector('input[data-testid="stTextInput"]');
+        function setCoords(coords) {
+            if (streamlitInput) {
+                streamlitInput.value = coords;
+                const event = new Event("input", { bubbles: true });
+                streamlitInput.dispatchEvent(event);
+            }
         }
-    );
-    </script>
-    """
-    st.text_input("🔍 Location (auto-filled)", key="user_coords")
-    components.html(js, height=0)
+
+        function tryGeo() {
+            if (!navigator.geolocation) {
+                setCoords("error:unsupported");
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const coords = position.coords.latitude + "," + position.coords.longitude;
+                    setCoords(coords);
+                },
+                (error) => {
+                    setCoords("error:" + error.message);
+                }
+            );
+        }
+
+        window.addEventListener("load", tryGeo);
+        </script>
+        """,
+        height=0,
+    )
+    st.text_input("🔍 Location (autofilled)", key="user_coords")
+
 
 def get_user_location():
     if "user_coords" in st.session_state and st.session_state.user_coords:
