@@ -10,3 +10,4 @@ geopy
 gspread
 google-auth
 streamlit-autorefresh
+google-api-python-client
