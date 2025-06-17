@@ -75,6 +75,15 @@ def download_file_from_drive(file_name, dest_path):
             _, done = downloader.next_chunk()
     return True
 
+import streamlit.components.v1 as components
+import math
+
+# Indiana Hospital Location (Mangalore)
+HOSPITAL_LAT = 12.8699
+HOSPITAL_LON = 74.8428
+ALLOWED_RADIUS_METERS = 50  # meters
+
+
 # --------------- Session State Init ----------------
 if "embeddings" not in st.session_state:
     os.makedirs("data", exist_ok=True)
@@ -156,7 +165,52 @@ if menu == "Register Face":
             st.error("❌ No face detected.")
 
 elif menu == "Take Attendance":
+
     st.subheader("📸 Take Attendance")
+
+    # ---- Location Logic ----
+    st.session_state["location_checked"] = True
+    query_params = st.query_params
+
+    if "lat" not in query_params or "lon" not in query_params:
+        st.markdown("""
+            <script>
+            navigator.geolocation.getCurrentPosition(
+                function(pos) {
+                    const lat = pos.coords.latitude;
+                    const lon = pos.coords.longitude;
+                    const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + "?lat=" + lat + "&lon=" + lon;
+                    window.location.replace(newUrl);
+                },
+                function(err) {
+                    alert("Location access is required to mark attendance.");
+                }
+            );
+            </script>
+        """, unsafe_allow_html=True)
+        st.info("📍 Detecting your location... please allow location access.")
+        st.stop()
+
+    # ---- Location Check ----
+    def haversine(lat1, lon1, lat2, lon2):
+        from math import radians, sin, cos, sqrt, atan2
+        R = 6371000  # Earth radius in meters
+        dlat = radians(lat2 - lat1)
+        dlon = radians(lon2 - lon1)
+        a = sin(dlat/2)**2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon/2)**2
+        c = 2 * atan2(sqrt(a), sqrt(1 - a))
+        return R * c
+
+    user_lat = float(query_params["lat"][0])
+    user_lon = float(query_params["lon"][0])
+    hospital_lat, hospital_lon = 12.8692, 74.8560  # Indiana Hospital & Heart Institute
+
+    distance = haversine(user_lat, user_lon, hospital_lat, hospital_lon)
+    if distance > 100:  # adjust this to 50 or 25 if needed
+        st.error("🚫 You must be inside Indiana Hospital & Heart Institute to mark attendance.")
+        st.stop()
+
+    # ---- Proceed with Face Attendance ----
     captured = st.camera_input("Take your photo")
     if captured:
         file_bytes = np.asarray(bytearray(captured.read()), dtype=np.uint8)
@@ -181,13 +235,32 @@ elif menu == "Take Attendance":
         else:
             st.error("❌ No face detected.")
 
-elif menu == "View Attendance Sheet":
-    st.subheader("📅 Today's Attendance")
-    records = get_today_attendance()
-    if records:
-        st.dataframe(pd.DataFrame(records))
-    else:
-        st.info("📭 No attendance found for today.")
+
+    # --- Continue only if location is verified ---
+    if st.session_state.location_ok:
+        captured = st.camera_input("Take your photo")
+        if captured:
+            file_bytes = np.asarray(bytearray(captured.read()), dtype=np.uint8)
+            img = cv2.imdecode(file_bytes, 1)
+            face_tensor = extract_face(img)
+            if face_tensor is not None:
+                emb = get_embedding(face_tensor)
+                for name, known_emb in st.session_state.embeddings.items():
+                    if is_match(known_emb, emb):
+                        now = datetime.now()
+                        date, time = now.strftime("%Y-%m-%d"), now.strftime("%H:%M:%S")
+                        record = {"Name": name, "Date": date, "Time": time}
+                        if record not in st.session_state.attendance:
+                            st.session_state.attendance.append(record)
+                            append_attendance(name, date, time)
+                            st.success(f"✅ Attendance marked for {name}")
+                        else:
+                            st.info("ℹ️ Already marked today.")
+                        break
+                else:
+                    st.warning("⚠️ Face not recognized.")
+            else:
+                st.error("❌ No face detected.")
 
 elif menu == "View Registered Users":
     st.subheader("👥 Registered Users")
