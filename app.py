@@ -70,11 +70,11 @@ def upload_file_to_drive(file_path, file_name):
         if files:
             file_id = files[0]['id']
             service.files().update(fileId=file_id, media_body=media).execute()
-            st.success(f"✅ Updated existing file on Drive: {file_name}")
+          
         else:
             file_metadata = {'name': file_name, 'parents': [DRIVE_FOLDER_ID]}
             service.files().create(body=file_metadata, media_body=media).execute()
-            st.success(f"✅ Uploaded new file to Drive: {file_name}")
+            
     except Exception as e:
         st.error(f"🚨 Upload failed: {e}")
 
