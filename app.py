@@ -116,6 +116,7 @@ LOCATION_RADIUS_KM = 0.7
 # 📍 Use HTML5 browser geolocation
 import streamlit.components.v1 as components
 
+
 def get_browser_location():
     components.html(
         """
@@ -129,29 +130,21 @@ def get_browser_location():
             }
         }
 
-        function tryGeo() {
-            if (!navigator.geolocation) {
-                setCoords("error:unsupported");
-                return;
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const coords = position.coords.latitude + "," + position.coords.longitude;
+                setCoords(coords);
+            },
+            (error) => {
+                setCoords("error:" + error.message);
             }
-
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const coords = position.coords.latitude + "," + position.coords.longitude;
-                    setCoords(coords);
-                },
-                (error) => {
-                    setCoords("error:" + error.message);
-                }
-            );
-        }
-
-        window.addEventListener("load", tryGeo);
+        );
         </script>
         """,
         height=0,
     )
-    st.text_input("🔍 Location (autofilled)", key="user_coords")
+    st.text_input("Location (autofilled)", key="user_coords")
+    st.markdown(f"📍 Your location: `{st.session_state.get('user_coords', 'Not yet detected')}`")
 st.markdown(f"📍 Debug Location: `{st.session_state.get('user_coords', 'Not yet detected')}`")
 
 
