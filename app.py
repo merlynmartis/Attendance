@@ -16,11 +16,12 @@ from streamlit_autorefresh import st_autorefresh
 from zoneinfo import ZoneInfo
 import pandas as pd
 import io
+import streamlit.components.v1 as components
 
-# --------------- Config ----------------
+# ---------------- Page Config ----------------
 st.set_page_config(page_title="Presencia - Face Attendance", layout="centered")
 
-# Set Background
+# ---------------- Background ----------------
 def set_background(image_file):
     with open(image_file, "rb") as f:
         encoded = base64.b64encode(f.read()).decode()
@@ -38,7 +39,7 @@ def set_background(image_file):
 
 set_background("background.jpg")
 
-# --------------- Google Sheets & Drive ----------------
+# ---------------- Google Setup ----------------
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
 service_account_info = st.secrets["gcp_service_account"]
 creds = Credentials.from_service_account_info(service_account_info, scopes=SCOPES)
@@ -47,38 +48,24 @@ SHEET_ID = '1lO0qt1EWZAwXjhRUOk19igYwI2rNyx5hLkG4wLyUkzc'
 DRIVE_FOLDER_ID = "1jAjhyqMb8PEvaBy-hTBqBq02XaVSL9rk"
 REGISTERED_PATH = "data/registered_faces.npz"
 
+# ---------------- Drive Utils ----------------
 def get_drive_service():
     return build('drive', 'v3', credentials=creds)
 
 def upload_file_to_drive(file_path, file_name):
-    if not os.path.exists(file_path):
-        st.error(f"❌ File not found: {file_path}")
-        return
-
-    file_size = os.path.getsize(file_path)
-    if file_size == 0:
-        st.error(f"⚠️ File is empty: {file_path}")
-        return
-
+    if not os.path.exists(file_path): return
     service = get_drive_service()
     query = f"name='{file_name}' and '{DRIVE_FOLDER_ID}' in parents and trashed=false"
-    results = service.files().list(q=query, fields="files(id)").execute()
-    files = results.get("files", [])
+    files = service.files().list(q=query, fields="files(id)").execute().get("files", [])
     media = MediaFileUpload(file_path, resumable=False)
-
     try:
         if files:
             file_id = files[0]['id']
             service.files().update(fileId=file_id, media_body=media).execute()
-          
         else:
-            file_metadata = {'name': file_name, 'parents': [DRIVE_FOLDER_ID]}
-            service.files().create(body=file_metadata, media_body=media).execute()
-            
+            service.files().create(body={'name': file_name, 'parents': [DRIVE_FOLDER_ID]}, media_body=media).execute()
     except Exception as e:
         st.error(f"🚨 Upload failed: {e}")
-
-
 
 def download_file_from_drive(file_name, dest_path):
     service = get_drive_service()
@@ -93,7 +80,7 @@ def download_file_from_drive(file_name, dest_path):
             _, done = downloader.next_chunk()
     return True
 
-# --------------- Session State Init ----------------
+# ---------------- Session State ----------------
 if "embeddings" not in st.session_state:
     os.makedirs("data", exist_ok=True)
     if download_file_from_drive("registered_faces.npz", REGISTERED_PATH):
@@ -105,7 +92,7 @@ if "embeddings" not in st.session_state:
 if "attendance" not in st.session_state:
     st.session_state.attendance = []
 
-# --------------- Face Recognition ----------------
+# ---------------- Face Recognition ----------------
 device = "cuda" if torch.cuda.is_available() else "cpu"
 mtcnn = MTCNN(image_size=160, margin=20, device=device)
 model = InceptionResnetV1(pretrained='vggface2').eval().to(device)
@@ -122,29 +109,26 @@ def get_embedding(face_tensor):
 def is_match(known, candidate, thresh=0.9):
     return np.linalg.norm(known - candidate) < thresh
 
-# --------------- Location Logic ----------------
-INDIANA_LOCATION = (12.867807375477005, 74.86635185183145)
+# ---------------- Location Setup ----------------
+INDIANA_LOCATION = (12.8678746, 74.8428772)  # Verified coords
 LOCATION_RADIUS_KM = 0.7
 
-import streamlit.components.v1 as components
-
-# Use HTML5 Geolocation API
+# 📍 Use HTML5 browser geolocation
 def get_browser_location():
-    location_code = """
+    js = """
     <script>
     navigator.geolocation.getCurrentPosition(
         (position) => {
             const coords = position.coords.latitude + "," + position.coords.longitude;
             const input = window.parent.document.querySelector('input[data-testid="stTextInput"]');
             input.value = coords;
-            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('input', {{ bubbles: true }}));
         }
     );
     </script>
     """
-    st.text_input("🔍 Location (autofilled)", key="user_coords")
-    components.html(location_code, height=0)
-
+    st.text_input("🔍 Location (auto-filled)", key="user_coords")
+    components.html(js, height=0)
 
 def get_user_location():
     if "user_coords" in st.session_state and st.session_state.user_coords:
@@ -154,7 +138,6 @@ def get_user_location():
         except:
             return None
     return None
-
 
 def haversine(loc1, loc2):
     from math import radians, sin, cos, sqrt, atan2
@@ -168,7 +151,7 @@ def haversine(loc1, loc2):
 def is_within_location(user_loc):
     return haversine(user_loc, INDIANA_LOCATION) <= LOCATION_RADIUS_KM if user_loc else False
 
-# --------------- Attendance ----------------
+# ---------------- Attendance ----------------
 def append_attendance(name, date, time):
     try:
         worksheet = gc.open_by_key(SHEET_ID).worksheet(date)
@@ -176,7 +159,6 @@ def append_attendance(name, date, time):
         worksheet = gc.open_by_key(SHEET_ID).add_worksheet(title=date, rows="1000", cols="3")
         worksheet.append_row(["Name", "Date", "Time"])
     worksheet.append_row([name, date, time])
-    return True
 
 def get_today_attendance():
     date = datetime.now().strftime("%Y-%m-%d")
@@ -185,7 +167,7 @@ def get_today_attendance():
     except:
         return []
 
-# --------------- UI ----------------
+# ---------------- UI ----------------
 st.markdown("""
 <div style="background-color: #ecf6f7; padding: 1.5rem; border-radius: 15px; text-align: center; box-shadow: 0 4px 10px rgba(43, 103, 119, 0.15);">
     <h2 style="color: #2b6777; margin-bottom: 0.5rem;">Presencia - A Face Attendance System</h2>
@@ -194,16 +176,13 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st_autorefresh(interval=60000, key="clock_refresh")
-
-ist = ZoneInfo("Asia/Kolkata")
-current_time = datetime.now(ist).strftime("%Y-%m-%d %H:%M")
+current_time = datetime.now(ZoneInfo("Asia/Kolkata")).strftime("%Y-%m-%d %H:%M")
 st.sidebar.markdown(f"🕒 **Current Time (IST):** `{current_time}`")
 
 menu = st.sidebar.selectbox("Menu", ["Register Face", "Take Attendance", "View Attendance Sheet", "View Registered Users"])
 admin_password = st.sidebar.text_input("🔐 Admin Password", type="password")
 
-# --------------- Functional Menus ----------------
-
+# ---------------- Pages ----------------
 if menu == "Register Face":
     st.subheader("📝 Register New Face")
     name = st.text_input("Enter your name")
@@ -221,12 +200,14 @@ if menu == "Register Face":
 
 elif menu == "Take Attendance":
     st.subheader("📸 Take Attendance")
-    get_browser_location()  # Trigger browser location collection
+    get_browser_location()
     captured = st.camera_input("Take your photo")
     if captured:
         user_loc = get_user_location()
-        if not is_within_location(user_loc):
-            st.error("🚫 You are not in Indiana Hospital.")
+        if not user_loc:
+            st.warning("📍 Waiting for location permission or detection...")
+        elif not is_within_location(user_loc):
+            st.error("🚫 You are not inside Indiana Hospital.")
         else:
             file_bytes = np.asarray(bytearray(captured.read()), dtype=np.uint8)
             img = cv2.imdecode(file_bytes, 1)
