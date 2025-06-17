@@ -166,7 +166,7 @@ elif menu == "Take Attendance":
             emb = get_embedding(face_tensor)
             for name, known_emb in st.session_state.embeddings.items():
                 if is_match(known_emb, emb):
-                    now = datetime.now()
+                    now = datetime.now(ZoneInfo("Asia/Kolkata"))
                     date, time = now.strftime("%Y-%m-%d"), now.strftime("%H:%M:%S")
                     record = {"Name": name, "Date": date, "Time": time}
                     if record not in st.session_state.attendance:
