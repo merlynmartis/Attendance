@@ -479,21 +479,27 @@ elif menu == "View Attendance Sheet":
 # 📂 View Registered Users
 elif menu == "View Registered Users":
     st.subheader("👥 Registered Users")
-    if os.path.exists("data/registered_faces.npz"):
-        with np.load("data/registered_faces.npz") as data:
-            names = list(data.files)
-        if names:
-            st.markdown("### Registered:")
-            for name in names:
-                st.markdown(f"- {name}")
-            if admin_password == "secret123":
-                if st.button("❌ Clear Registered Users"):
-                    os.remove("data/registered_faces.npz")
-                    st.session_state.embeddings = {}
-                    st.success("✅ Cleared all users.")
-            else:
-                st.warning("🔒 Enter correct admin password to clear users.")
-        else:
-            st.info("📭 No users found.")
-    else:
+
+    if not os.path.exists("data/registered_faces.npz"):
         st.info("📭 No registered users yet.")
+    else:
+        try:
+            with np.load("data/registered_faces.npz") as data:
+                names = list(data.files)
+
+            if names:
+                st.markdown("### Registered:")
+                for name in names:
+                    st.markdown(f"- {name}")
+                if admin_password == "secret123":
+                    if st.button("❌ Clear Registered Users"):
+                        os.remove("data/registered_faces.npz")
+                        st.session_state.embeddings = {}
+                        st.success("✅ Cleared all users.")
+                else:
+                    st.warning("🔒 Enter correct admin password to clear users.")
+            else:
+                st.info("📭 No users found.")
+        except Exception as e:
+            st.error(f"⚠️ Error reading registered users: {str(e)}")
+
