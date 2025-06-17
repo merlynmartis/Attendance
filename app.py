@@ -159,7 +159,6 @@ current_time = datetime.now(ist).strftime("%Y-%m-%d %H:%M")
 st.sidebar.markdown(f"🕒 **Current Time (IST):** `{current_time}`")
 
 menu = st.sidebar.selectbox("Menu", ["Register Face", "Take Attendance", "View Attendance Sheet", "View Registered Users"])
-admin_password = st.sidebar.text_input("🔐 Admin Password", type="password")
 
 # --------------- Functional Menus ----------------
 
