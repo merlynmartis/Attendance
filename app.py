@@ -53,12 +53,14 @@ def get_drive_service():
 def upload_file_to_drive(file_path, file_name):
     service = get_drive_service()
     query = f"name='{file_name}' and '{DRIVE_FOLDER_ID}' in parents and trashed=false"
-    files = service.files().list(q=query, fields="files(id)").execute().get('files', [])
-    media = MediaFileUpload(file_path, resumable=True)
+    results = service.files().list(q=query, fields="files(id)").execute()
+    files = results.get("files", [])
+    media = MediaFileUpload(file_path, resumable=False)  # ← resumable=False fixes many upload errors
     if files:
         service.files().update(fileId=files[0]['id'], media_body=media).execute()
     else:
         service.files().create(body={'name': file_name, 'parents': [DRIVE_FOLDER_ID]}, media_body=media).execute()
+
 
 def download_file_from_drive(file_name, dest_path):
     service = get_drive_service()
