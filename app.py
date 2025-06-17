@@ -152,6 +152,7 @@ def get_browser_location():
         height=0,
     )
     st.text_input("🔍 Location (autofilled)", key="user_coords")
+st.markdown(f"📍 Debug Location: `{st.session_state.get('user_coords', 'Not yet detected')}`")
 
 
 def get_user_location():
