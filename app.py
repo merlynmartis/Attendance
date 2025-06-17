@@ -126,12 +126,35 @@ def is_match(known, candidate, thresh=0.9):
 INDIANA_LOCATION = (12.8697, 74.8426)
 LOCATION_RADIUS_KM = 0.5
 
+import streamlit.components.v1 as components
+
+# Use HTML5 Geolocation API
+def get_browser_location():
+    location_code = """
+    <script>
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            const coords = position.coords.latitude + "," + position.coords.longitude;
+            const input = window.parent.document.querySelector('input[data-testid="stTextInput"]');
+            input.value = coords;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    );
+    </script>
+    """
+    st.text_input("🔍 Location (autofilled)", key="user_coords")
+    components.html(location_code, height=0)
+
+
 def get_user_location():
-    try:
-        loc = requests.get("https://ipinfo.io/json").json()['loc'].split(',')
-        return float(loc[0]), float(loc[1])
-    except:
-        return None
+    if "user_coords" in st.session_state and st.session_state.user_coords:
+        try:
+            lat, lon = map(float, st.session_state.user_coords.split(","))
+            return lat, lon
+        except:
+            return None
+    return None
+
 
 def haversine(loc1, loc2):
     from math import radians, sin, cos, sqrt, atan2
