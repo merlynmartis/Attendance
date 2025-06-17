@@ -51,15 +51,33 @@ def get_drive_service():
     return build('drive', 'v3', credentials=creds)
 
 def upload_file_to_drive(file_path, file_name):
+    if not os.path.exists(file_path):
+        st.error(f"❌ File not found: {file_path}")
+        return
+
+    file_size = os.path.getsize(file_path)
+    if file_size == 0:
+        st.error(f"⚠️ File is empty: {file_path}")
+        return
+
     service = get_drive_service()
     query = f"name='{file_name}' and '{DRIVE_FOLDER_ID}' in parents and trashed=false"
     results = service.files().list(q=query, fields="files(id)").execute()
     files = results.get("files", [])
-    media = MediaFileUpload(file_path, resumable=False)  # ← resumable=False fixes many upload errors
-    if files:
-        service.files().update(fileId=files[0]['id'], media_body=media).execute()
-    else:
-        service.files().create(body={'name': file_name, 'parents': [DRIVE_FOLDER_ID]}, media_body=media).execute()
+    media = MediaFileUpload(file_path, resumable=False)
+
+    try:
+        if files:
+            file_id = files[0]['id']
+            service.files().update(fileId=file_id, media_body=media).execute()
+            st.success(f"✅ Updated existing file on Drive: {file_name}")
+        else:
+            file_metadata = {'name': file_name, 'parents': [DRIVE_FOLDER_ID]}
+            service.files().create(body=file_metadata, media_body=media).execute()
+            st.success(f"✅ Uploaded new file to Drive: {file_name}")
+    except Exception as e:
+        st.error(f"🚨 Upload failed: {e}")
+
 
 
 def download_file_from_drive(file_name, dest_path):
