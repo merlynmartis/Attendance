@@ -181,31 +181,27 @@ elif menu == "Take Attendance":
     st.subheader("📸 Take Attendance")
     captured = st.camera_input("Take your photo")
     if captured:
-        user_loc = get_user_location()
-        if not is_within_location(user_loc):
-            st.error("🚫 You are not in Indiana Hospital.")
-        else:
-            file_bytes = np.asarray(bytearray(captured.read()), dtype=np.uint8)
-            img = cv2.imdecode(file_bytes, 1)
-            face_tensor = extract_face(img)
-            if face_tensor is not None:
-                emb = get_embedding(face_tensor)
-                for name, known_emb in st.session_state.embeddings.items():
-                    if is_match(known_emb, emb):
-                        now = datetime.now()
-                        date, time = now.strftime("%Y-%m-%d"), now.strftime("%H:%M:%S")
-                        record = {"Name": name, "Date": date, "Time": time}
-                        if record not in st.session_state.attendance:
-                            st.session_state.attendance.append(record)
-                            append_attendance(name, date, time)
-                            st.success(f"✅ Attendance marked for {name}")
-                        else:
-                            st.info("ℹ️ Already marked today.")
-                        break
-                else:
-                    st.warning("⚠️ Face not recognized.")
+        file_bytes = np.asarray(bytearray(captured.read()), dtype=np.uint8)
+        img = cv2.imdecode(file_bytes, 1)
+        face_tensor = extract_face(img)
+        if face_tensor is not None:
+            emb = get_embedding(face_tensor)
+            for name, known_emb in st.session_state.embeddings.items():
+                if is_match(known_emb, emb):
+                    now = datetime.now()
+                    date, time = now.strftime("%Y-%m-%d"), now.strftime("%H:%M:%S")
+                    record = {"Name": name, "Date": date, "Time": time}
+                    if record not in st.session_state.attendance:
+                        st.session_state.attendance.append(record)
+                        append_attendance(name, date, time)
+                        st.success(f"✅ Attendance marked for {name}")
+                    else:
+                        st.info("ℹ️ Already marked today.")
+                    break
             else:
-                st.error("❌ No face detected.")
+                st.warning("⚠️ Face not recognized.")
+        else:
+            st.error("❌ No face detected.")
 
 elif menu == "View Attendance Sheet":
     st.subheader("📅 Today's Attendance")
