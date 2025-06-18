@@ -8,6 +8,7 @@ facenet-pytorch
 pandas
 geopy
 gspread
+streamlit_js_eval==0.1.7
 google-auth
 streamlit-autorefresh
 google-api-python-client
