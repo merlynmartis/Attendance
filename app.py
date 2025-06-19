@@ -1,3 +1,4 @@
+
 import streamlit as st
 import numpy as np
 import cv2
@@ -6,6 +7,7 @@ import torch
 from datetime import datetime
 from PIL import Image
 import base64
+import requests
 import gspread
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
@@ -15,11 +17,8 @@ from streamlit_autorefresh import st_autorefresh
 from zoneinfo import ZoneInfo
 import pandas as pd
 import io
-from streamlit_folium import st_folium
-import folium
-from math import radians, sin, cos, sqrt, atan2
 
-# ---------------- Config ----------------
+# --------------- Config ----------------
 st.set_page_config(page_title="Presencia - Face Attendance", layout="centered")
 
 # Set Background
@@ -40,18 +39,7 @@ def set_background(image_file):
 
 set_background("background.jpg")
 
-# ---------------- Location Validation ----------------
-def is_within_radius(user_lat, user_lon, center_lat=12.8997, center_lon=74.8585, radius_m=150):
-    R = 6371000
-    lat1, lon1 = radians(center_lat), radians(center_lon)
-    lat2, lon2 = radians(user_lat), radians(user_lon)
-    dlat = lat2 - lat1
-    dlon = lon2 - lon1
-    a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
-    c = 2 * atan2(sqrt(a), sqrt(1 - a))
-    return (R * c) <= radius_m
-
-# ---------------- Google Sheets & Drive ----------------
+# --------------- Google Sheets & Drive ----------------
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
 service_account_info = st.secrets["gcp_service_account"]
 creds = Credentials.from_service_account_info(service_account_info, scopes=SCOPES)
@@ -68,11 +56,12 @@ def upload_file_to_drive(file_path, file_name):
     query = f"name='{file_name}' and '{DRIVE_FOLDER_ID}' in parents and trashed=false"
     results = service.files().list(q=query, fields="files(id)").execute()
     files = results.get("files", [])
-    media = MediaFileUpload(file_path, resumable=False)
+    media = MediaFileUpload(file_path, resumable=False)  # ← resumable=False fixes many upload errors
     if files:
         service.files().update(fileId=files[0]['id'], media_body=media).execute()
     else:
         service.files().create(body={'name': file_name, 'parents': [DRIVE_FOLDER_ID]}, media_body=media).execute()
+
 
 def download_file_from_drive(file_name, dest_path):
     service = get_drive_service()
@@ -87,7 +76,7 @@ def download_file_from_drive(file_name, dest_path):
             _, done = downloader.next_chunk()
     return True
 
-# ---------------- Session State Init ----------------
+# --------------- Session State Init ----------------
 if "embeddings" not in st.session_state:
     os.makedirs("data", exist_ok=True)
     if download_file_from_drive("registered_faces.npz", REGISTERED_PATH):
@@ -99,7 +88,7 @@ if "embeddings" not in st.session_state:
 if "attendance" not in st.session_state:
     st.session_state.attendance = []
 
-# ---------------- Face Recognition ----------------
+# --------------- Face Recognition ----------------
 device = "cuda" if torch.cuda.is_available() else "cpu"
 mtcnn = MTCNN(image_size=160, margin=20, device=device)
 model = InceptionResnetV1(pretrained='vggface2').eval().to(device)
@@ -116,7 +105,8 @@ def get_embedding(face_tensor):
 def is_match(known, candidate, thresh=0.9):
     return np.linalg.norm(known - candidate) < thresh
 
-# ---------------- Attendance ----------------
+
+# --------------- Attendance ----------------
 def append_attendance(name, date, time):
     try:
         worksheet = gc.open_by_key(SHEET_ID).worksheet(date)
@@ -133,7 +123,7 @@ def get_today_attendance():
     except:
         return []
 
-# ---------------- UI ----------------
+# --------------- UI ----------------
 st.markdown("""
 <div style="background-color: #ecf6f7; padding: 1.5rem; border-radius: 15px; text-align: center; box-shadow: 0 4px 10px rgba(43, 103, 119, 0.15);">
     <h2 style="color: #2b6777; margin-bottom: 0.5rem;">Presencia - A Face Attendance System</h2>
@@ -149,7 +139,7 @@ st.sidebar.markdown(f"🕒 Current Time (IST): {current_time}")
 
 menu = st.sidebar.selectbox("Menu", ["Register Face", "Take Attendance", "View Attendance Sheet", "View Registered Users"])
 
-# ---------------- Functional Menus ----------------
+# --------------- Functional Menus ----------------
 
 if menu == "Register Face":
     st.subheader("Register New Face")
@@ -167,46 +157,30 @@ if menu == "Register Face":
             st.error("❌ No face detected.")
 
 elif menu == "Take Attendance":
-    st.subheader("📍 Detecting your Location")
-    m = folium.Map(location=[12.91, 74.85], zoom_start=15)
-    folium.plugins.LocateControl(auto_start=True).add_to(m)
-    map_data = st_folium(m, width=700, height=500)
-
-    lat, lon = None, None
-    if map_data and map_data.get("location"):
-        lat, lon = map_data["location"]["lat"], map_data["location"]["lng"]
-        st.success(f"📡 Your Location: {lat}, {lon}")
-
     st.subheader("📸 Take Attendance")
     captured = st.camera_input("Take your photo")
-
     if captured:
-        if lat is None or lon is None:
-            st.warning("⚠ Please allow GPS access or click on the map to detect your location.")
-        elif not is_within_radius(lat, lon):
-            st.error("❌ You are not within Indiana Hospital premises. Attendance denied.")
-        else:
-            file_bytes = np.asarray(bytearray(captured.read()), dtype=np.uint8)
-            img = cv2.imdecode(file_bytes, 1)
-            face_tensor = extract_face(img)
-            if face_tensor is not None:
-                emb = get_embedding(face_tensor)
-                for name, known_emb in st.session_state.embeddings.items():
-                    if is_match(known_emb, emb):
-                        now = datetime.now(ZoneInfo("Asia/Kolkata"))
-                        date, time = now.strftime("%Y-%m-%d"), now.strftime("%H:%M:%S")
-                        record = {"Name": name, "Date": date, "Time": time}
-                        if record not in st.session_state.attendance:
-                            st.session_state.attendance.append(record)
-                            append_attendance(name, date, time)
-                            st.success(f"✅ Attendance marked for {name}")
-                        else:
-                            st.info("ℹ Already marked today.")
-                        break
-                else:
-                    st.warning("⚠ Face not recognized.")
+        file_bytes = np.asarray(bytearray(captured.read()), dtype=np.uint8)
+        img = cv2.imdecode(file_bytes, 1)
+        face_tensor = extract_face(img)
+        if face_tensor is not None:
+            emb = get_embedding(face_tensor)
+            for name, known_emb in st.session_state.embeddings.items():
+                if is_match(known_emb, emb):
+                    now = datetime.now(ZoneInfo("Asia/Kolkata"))
+                    date, time = now.strftime("%Y-%m-%d"), now.strftime("%H:%M:%S")
+                    record = {"Name": name, "Date": date, "Time": time}
+                    if record not in st.session_state.attendance:
+                        st.session_state.attendance.append(record)
+                        append_attendance(name, date, time)
+                        st.success(f"✅ Attendance marked for {name}")
+                    else:
+                        st.info("ℹ Already marked today.")
+                    break
             else:
-                st.error("❌ No face detected.")
+                st.warning("⚠ Face not recognized.")
+        else:
+            st.error("❌ No face detected.")
 
 elif menu == "View Attendance Sheet":
     st.subheader("📅 Today's Attendance")
