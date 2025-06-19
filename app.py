@@ -16,6 +16,8 @@ from streamlit_autorefresh import st_autorefresh
 from zoneinfo import ZoneInfo
 import pandas as pd
 import io
+from streamlit_folium import st_folium
+import folium
 
 # --------------- Config ----------------
 st.set_page_config(page_title="Presencia - Face Attendance", layout="centered")
@@ -154,9 +156,6 @@ if menu == "Register Face":
             st.success(f"✅ Registered {name}")
         else:
             st.error("❌ No face detected.")
-
-from streamlit_folium import st_folium
-import folium
 
 elif menu == "Take Attendance":
     st.subheader("📸 Take Attendance")
