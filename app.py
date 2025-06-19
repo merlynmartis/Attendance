@@ -164,7 +164,7 @@ elif menu == "Take Attendance":
     # Indiana Hospital coordinates
     HOSPITAL_LAT = 12.8682
     HOSPITAL_LON = 74.8661
-    ALLOWED_RADIUS_METERS = 300
+    ALLOWED_RADIUS_METERS = 500
 
     def haversine(lat1, lon1, lat2, lon2):
         lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
