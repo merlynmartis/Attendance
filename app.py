@@ -175,7 +175,7 @@ elif menu == "Take Attendance":
         r = 6371000  # Earth radius in meters
         return c * r
 
-    st.subheader("📍 Verify Your Location")
+    
     m = folium.Map(location=[HOSPITAL_LAT, HOSPITAL_LON], zoom_start=17)
 
     folium.Circle(
@@ -211,9 +211,9 @@ elif menu == "Take Attendance":
             st.info("📍 Auto-detected browser location.")
 
     if lat and lon:
-        st.success(f"📡 Your Location: {lat}, {lon}")
+        
         distance = haversine(lat, lon, HOSPITAL_LAT, HOSPITAL_LON)
-        st.info(f"📏 Distance from Indiana Hospital: {int(distance)} meters")
+        
 
         if distance > ALLOWED_RADIUS_METERS:
             st.error("❌ You are outside the allowed attendance zone.")
@@ -221,7 +221,7 @@ elif menu == "Take Attendance":
         else:
             st.success("✅ You are allowed to take attendance.")
     else:
-        st.warning("📍 Location not detected. Tap the blue dot or enable location.")
+        st.warning("📍 Location not detected. Tap anywhere on the map")
         st.stop()
 
     # ---------------- Take Photo and Mark Attendance ----------------
