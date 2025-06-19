@@ -241,7 +241,7 @@ elif menu == "Take Attendance":
                     if record not in st.session_state.attendance:
                         st.session_state.attendance.append(record)
                         append_attendance(name, date, time)
-                        st.success(f"✅ Attendance marked for {name}")
+                        st.success(f"Welcome {name}, Your attendance for today is marked")
                     else:
                         st.info("ℹ Attendance already marked today.")
                     break
