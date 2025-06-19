@@ -155,31 +155,69 @@ if menu == "Register Face":
         else:
             st.error("❌ No face detected.")
 
+from streamlit_folium import st_folium
+import folium
+
 elif menu == "Take Attendance":
     st.subheader("📸 Take Attendance")
-    captured = st.camera_input("Take your photo")
-    if captured:
-        file_bytes = np.asarray(bytearray(captured.read()), dtype=np.uint8)
-        img = cv2.imdecode(file_bytes, 1)
-        face_tensor = extract_face(img)
-        if face_tensor is not None:
-            emb = get_embedding(face_tensor)
-            for name, known_emb in st.session_state.embeddings.items():
-                if is_match(known_emb, emb):
-                    now = datetime.now(ZoneInfo("Asia/Kolkata"))
-                    date, time = now.strftime("%Y-%m-%d"), now.strftime("%H:%M:%S")
-                    record = {"Name": name, "Date": date, "Time": time}
-                    if record not in st.session_state.attendance:
-                        st.session_state.attendance.append(record)
-                        append_attendance(name, date, time)
-                        st.success(f"✅ Attendance marked for {name}")
-                    else:
-                        st.info("ℹ Already marked today.")
-                    break
-            else:
-                st.warning("⚠ Face not recognized.")
+    
+    # Location setup
+    st.info("📍 Detecting your location... please allow location access.")
+
+    # Map centered at Indiana Hospital
+    m = folium.Map(location=[12.8997, 74.8585], zoom_start=17)
+    folium.Marker([12.8997, 74.8585], tooltip="Indiana Hospital").add_to(m)
+    folium.plugins.LocateControl(auto_start=True).add_to(m)
+    
+    map_data = st_folium(m, width=700, height=400)
+    
+    location_valid = False
+    if map_data:
+        loc = map_data.get("location") or map_data.get("last_clicked")
+        if loc:
+            lat = loc["lat"]
+            lon = loc["lng"]
+            st.success(f"📡 Your Location: {lat:.6f}, {lon:.6f}")
+            
+            # Check proximity (~200 meters radius)
+            def is_near_indiana(lat, lon):
+                hospital_lat = 12.8997
+                hospital_lon = 74.8585
+                return ((lat - hospital_lat)**2 + (lon - hospital_lon)**2)**0.5 < 0.002  # Approx ~200m radius
+            
+            location_valid = is_near_indiana(lat, lon)
+            if not location_valid:
+                st.warning("🚫 You are not within range of Indiana Hospital.")
         else:
-            st.error("❌ No face detected.")
+            st.info("📍 Waiting for location detection...")
+
+    if location_valid:
+        captured = st.camera_input("📸 Take your photo")
+        if captured:
+            file_bytes = np.asarray(bytearray(captured.read()), dtype=np.uint8)
+            img = cv2.imdecode(file_bytes, 1)
+            face_tensor = extract_face(img)
+            if face_tensor is not None:
+                emb = get_embedding(face_tensor)
+                for name, known_emb in st.session_state.embeddings.items():
+                    if is_match(known_emb, emb):
+                        now = datetime.now(ZoneInfo("Asia/Kolkata"))
+                        date, time = now.strftime("%Y-%m-%d"), now.strftime("%H:%M:%S")
+                        record = {"Name": name, "Date": date, "Time": time}
+                        if record not in st.session_state.attendance:
+                            st.session_state.attendance.append(record)
+                            append_attendance(name, date, time)
+                            st.success(f"✅ Attendance marked for {name}")
+                        else:
+                            st.info("ℹ️ Already marked today.")
+                        break
+                else:
+                    st.warning("⚠ Face not recognized.")
+            else:
+                st.error("❌ No face detected.")
+    else:
+        st.info("📍 You must be near Indiana Hospital to mark attendance.")
+
 
 elif menu == "View Attendance Sheet":
     st.subheader("📅 Today's Attendance")
