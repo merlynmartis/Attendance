@@ -17,17 +17,20 @@ elif menu == "Take Attendance":
         r = 6371000  # Earth radius in meters
         return c * r
 
-    st.subheader("📍 Verifying your location...")
+    st.subheader("📍 Verify Your Location")
     m = folium.Map(location=[HOSPITAL_LAT, HOSPITAL_LON], zoom_start=17)
+
     folium.Circle(
         location=[HOSPITAL_LAT, HOSPITAL_LON],
         radius=ALLOWED_RADIUS_METERS,
         color="green", fill=True, fill_opacity=0.3
     ).add_to(m)
+
     folium.Marker(
         [HOSPITAL_LAT, HOSPITAL_LON],
         tooltip="Indiana Hospital"
     ).add_to(m)
+
     folium.plugins.LocateControl(
         auto_start=True,
         keepCurrentZoomLevel=True,
@@ -38,28 +41,32 @@ elif menu == "Take Attendance":
 
     location_data = st_folium(m, width=700, height=500)
     lat = lon = None
+
     if location_data:
         if location_data.get("last_clicked"):
             lat = location_data["last_clicked"]["lat"]
             lon = location_data["last_clicked"]["lng"]
-            st.info("📌 You clicked on the map to confirm location.")
+            st.info("📌 Location selected by click.")
         elif location_data.get("location"):
             lat = location_data["location"]["lat"]
             lon = location_data["location"]["lng"]
-            st.info("📍 Using browser GPS location (auto-detected).")
+            st.info("📍 Auto-detected browser location.")
 
     if lat and lon:
         st.success(f"📡 Your Location: {lat}, {lon}")
         distance = haversine(lat, lon, HOSPITAL_LAT, HOSPITAL_LON)
-        st.info(f"📏 Distance from Hospital: {int(distance)} meters")
+        st.info(f"📏 Distance from Indiana Hospital: {int(distance)} meters")
+
         if distance > ALLOWED_RADIUS_METERS:
             st.error("❌ You are outside the allowed attendance zone.")
             st.stop()
+        else:
+            st.success("✅ You are allowed to take attendance.")
     else:
-        st.warning("📍 Location not available. Please tap the blue dot or enable GPS.")
+        st.warning("📍 Location not detected. Tap the blue dot or enable location.")
         st.stop()
 
-    # Proceed with attendance capture if location is valid
+    # ---------------- Take Photo and Mark Attendance ----------------
     st.subheader("📸 Now take your photo")
     captured = st.camera_input("Take your photo")
     if captured:
@@ -78,7 +85,7 @@ elif menu == "Take Attendance":
                         append_attendance(name, date, time)
                         st.success(f"✅ Attendance marked for {name}")
                     else:
-                        st.info("ℹ Already marked today.")
+                        st.info("ℹ Attendance already marked today.")
                     break
             else:
                 st.warning("⚠ Face not recognized.")
