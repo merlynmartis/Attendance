@@ -172,7 +172,7 @@ elif menu == "Take Attendance":
         r = 6371000
         return c * r
 
-    st.subheader("Click anywhere on the Map")
+    st.subheader("📍Your Location")
     m = folium.Map(location=[HOSPITAL_LAT, HOSPITAL_LON], zoom_start=17)
 
     folium.Circle(
@@ -213,7 +213,7 @@ elif menu == "Take Attendance":
         else:
             st.success("You are allowed to take attendance.")
     else:
-        st.warning("📍 Location not detected. Tap the blue dot or enable location.")
+        st.warning("📍 Location not detected. Enable location and tap the blue dot.")
         st.stop()
 
     st.subheader("📸 Now take your photo")
@@ -229,7 +229,7 @@ elif menu == "Take Attendance":
                     now = datetime.now(ZoneInfo("Asia/Kolkata"))
                     date, time = now.strftime("%Y-%m-%d"), now.strftime("%H:%M:%S")
                     append_attendance(name, date, time)
-                    st.success(f"Welcome {name}, Your attendance for today is marked")
+                    st.success(f"Welcome {name}, Your today's attendance is marked at {time}")
                     break
             else:
                 st.warning("⚠ Face not recognized.")
@@ -237,7 +237,7 @@ elif menu == "Take Attendance":
             st.error("❌ No face detected.")
 
 elif menu == "View Attendance Sheet":
-    st.subheader("📅 Today's Attendance")
+    st.subheader("Today's Attendance")
     records = get_today_attendance()
     if records:
         st.dataframe(pd.DataFrame(records))
