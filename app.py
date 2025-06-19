@@ -17,6 +17,7 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 import io
 
+
 # --------------- Config ----------------
 st.set_page_config(page_title="Presencia - Face Attendance", layout="centered")
 
@@ -55,11 +56,12 @@ def upload_file_to_drive(file_path, file_name):
     query = f"name='{file_name}' and '{DRIVE_FOLDER_ID}' in parents and trashed=false"
     results = service.files().list(q=query, fields="files(id)").execute()
     files = results.get("files", [])
-    media = MediaFileUpload(file_path, resumable=False)
+    media = MediaFileUpload(file_path, resumable=False)  # ← resumable=False fixes many upload errors
     if files:
         service.files().update(fileId=files[0]['id'], media_body=media).execute()
     else:
         service.files().create(body={'name': file_name, 'parents': [DRIVE_FOLDER_ID]}, media_body=media).execute()
+
 
 def download_file_from_drive(file_name, dest_path):
     service = get_drive_service()
@@ -83,15 +85,13 @@ if "embeddings" not in st.session_state:
     else:
         st.session_state.embeddings = {}
 
+if "attendance" not in st.session_state:
+    st.session_state.attendance = []
+
 # --------------- Face Recognition ----------------
 device = "cuda" if torch.cuda.is_available() else "cpu"
-
-if "model" not in st.session_state:
-    st.session_state.mtcnn = MTCNN(image_size=160, margin=20, device=device)
-    st.session_state.model = InceptionResnetV1(pretrained='vggface2').eval().to(device)
-
-mtcnn = st.session_state.mtcnn
-model = st.session_state.model
+mtcnn = MTCNN(image_size=160, margin=20, device=device)
+model = InceptionResnetV1(pretrained='vggface2').eval().to(device)
 
 def extract_face(img):
     img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -104,6 +104,7 @@ def get_embedding(face_tensor):
 
 def is_match(known, candidate, thresh=0.9):
     return np.linalg.norm(known - candidate) < thresh
+
 
 # --------------- Attendance ----------------
 def append_attendance(name, date, time):
@@ -139,6 +140,7 @@ st.sidebar.markdown(f"🕒 Current Time (IST): {current_time}")
 menu = st.sidebar.selectbox("Menu", ["Register Face", "Take Attendance", "View Attendance Sheet", "View Registered Users"])
 
 # --------------- Functional Menus ----------------
+
 if menu == "Register Face":
     st.subheader("Register New Face")
     name = st.text_input("Enter your name")
@@ -159,6 +161,7 @@ elif menu == "Take Attendance":
     import folium
     from math import radians, cos, sin, asin, sqrt
 
+    # Indiana Hospital coordinates
     HOSPITAL_LAT = 12.8682
     HOSPITAL_LON = 74.8661
     ALLOWED_RADIUS_METERS = 500
@@ -169,10 +172,10 @@ elif menu == "Take Attendance":
         dlon = lon2 - lon1
         a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
         c = 2 * asin(sqrt(a))
-        r = 6371000
+        r = 6371000  # Earth radius in meters
         return c * r
 
-    st.subheader("📍Your Location")
+    st.subheader("📍Your Loaction")
     m = folium.Map(location=[HOSPITAL_LAT, HOSPITAL_LON], zoom_start=17)
 
     folium.Circle(
@@ -201,21 +204,27 @@ elif menu == "Take Attendance":
         if location_data.get("last_clicked"):
             lat = location_data["last_clicked"]["lat"]
             lon = location_data["last_clicked"]["lng"]
+            
         elif location_data.get("location"):
             lat = location_data["location"]["lat"]
             lon = location_data["location"]["lng"]
+            
 
     if lat and lon:
+        
         distance = haversine(lat, lon, HOSPITAL_LAT, HOSPITAL_LON)
+       
+
         if distance > ALLOWED_RADIUS_METERS:
             st.error("You are outside the allowed attendance zone.")
             st.stop()
         else:
             st.success("You are allowed to take attendance.")
     else:
-        st.warning("📍 Location not detected. Enable location and tap the blue dot.")
+        st.warning("📍 Location not detected. Tap the blue dot or enable location.")
         st.stop()
 
+    # ---------------- Take Photo and Mark Attendance ----------------
     st.subheader("📸 Now take your photo")
     captured = st.camera_input("Take your photo")
     if captured:
@@ -228,16 +237,22 @@ elif menu == "Take Attendance":
                 if is_match(known_emb, emb):
                     now = datetime.now(ZoneInfo("Asia/Kolkata"))
                     date, time = now.strftime("%Y-%m-%d"), now.strftime("%H:%M:%S")
-                    append_attendance(name, date, time)
-                    st.success(f"Welcome {name}, Your today's attendance is marked at {time}")
+                    record = {"Name": name, "Date": date, "Time": time}
+                    if record not in st.session_state.attendance:
+                        st.session_state.attendance.append(record)
+                        append_attendance(name, date, time)
+                        st.success(f"Welcome {name}, Your today's attendance is marked at {time}")
+                    else:
+                        st.info("ℹ Attendance already marked today.")
                     break
             else:
                 st.warning("⚠ Face not recognized.")
         else:
             st.error("❌ No face detected.")
 
+
 elif menu == "View Attendance Sheet":
-    st.subheader("Today's Attendance")
+    st.subheader("📅 Today's Attendance")
     records = get_today_attendance()
     if records:
         st.dataframe(pd.DataFrame(records))
