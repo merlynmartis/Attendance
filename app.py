@@ -193,7 +193,7 @@ elif menu == "Take Attendance":
         auto_start=True,
         keepCurrentZoomLevel=True,
         showPopup=True,
-        strings={"title": "Tap the blue dot to confirm your location"},
+        strings={"title": "Your Location"},
         locateOptions={"enableHighAccuracy": True}
     ).add_to(m)
 
@@ -221,7 +221,7 @@ elif menu == "Take Attendance":
         else:
             st.success("You are allowed to take attendance.")
     else:
-        st.warning("📍 Location not detected. Tap the blue dot or enable location.")
+        st.warning("📍")
         st.stop()
 
     # ---------------- Take Photo and Mark Attendance ----------------
