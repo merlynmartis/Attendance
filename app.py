@@ -200,12 +200,14 @@ elif menu == "Take Attendance":
     location_data = st_folium(m, width=700, height=500)
     lat = lon = None
 
-    if location_data and location_data.get("location"):
-        lat = location_data["location"]["lat"]
-        lon = location_data["location"]["lng"]
-    else:
-        st.warning("📍 Please tap the blue dot to confirm your location. Manual clicks are disabled.")
-        st.stop()
+    if location_data:
+        if location_data.get("last_clicked"):
+            lat = location_data["last_clicked"]["lat"]
+            lon = location_data["last_clicked"]["lng"]
+            
+        elif location_data.get("location"):
+            lat = location_data["location"]["lat"]
+            lon = location_data["location"]["lng"]
             
 
     if lat and lon:
