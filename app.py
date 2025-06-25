@@ -200,33 +200,15 @@ elif menu == "Take Attendance":
     location_data = st_folium(m, width=700, height=500)
     lat = lon = None
 
-    if location_data and "location" in location_data:
-    # Actual user location (from blue dot)
-        user_lat = location_data["location"]["lat"]
-        user_lon = location_data["location"]["lng"]
-
-    # Require click near the blue dot
-        if "last_clicked" in location_data:
-            clicked_lat = location_data["last_clicked"]["lat"]
-            clicked_lon = location_data["last_clicked"]["lng"]
-
-        # Calculate distance from clicked point to actual location
-            distance_from_dot = haversine(user_lat, user_lon, clicked_lat, clicked_lon)
-
-            if distance_from_dot <= 10:  # Accept only if within 10 meters
-                lat, lon = clicked_lat, clicked_lon
-                st.success("✅ Location verified near blue dot.")
-            else:
-                st.error("❌ Please click exactly on the blue dot (your current location).")
-                st.stop()
-        else:
-            st.warning("📍 Please click the blue dot to confirm your location.")
-            st.stop()
-    else:
-        st.warning("📍 Waiting for your device's location (blue dot)...")
-        st.stop()
-
-
+    if location_data:
+        if location_data.get("last_clicked"):
+            lat = location_data["last_clicked"]["lat"]
+            lon = location_data["last_clicked"]["lng"]
+            
+        elif location_data.get("location"):
+            lat = location_data["location"]["lat"]
+            lon = location_data["location"]["lng"]
+            
 
     if lat and lon:
         
