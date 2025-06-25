@@ -200,7 +200,7 @@ elif menu == "Take Attendance":
     location_data = st_folium(m, width=700, height=500)
     lat = lon = None
 
-        if location_data and location_data.get("location"):
+    if location_data and location_data.get("location"):
         lat = location_data["location"]["lat"]
         lon = location_data["location"]["lng"]
     else:
