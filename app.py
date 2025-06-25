@@ -221,7 +221,7 @@ elif menu == "Take Attendance":
         else:
             st.success("You are allowed to take attendance.")
     else:
-        st.warning("📍")
+        st.warning("You are outside the allowed attendance zone.")
         st.stop()
 
     # ---------------- Take Photo and Mark Attendance ----------------
