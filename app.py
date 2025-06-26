@@ -175,7 +175,7 @@ elif menu == "Take Attendance":
         r = 6371000  # Earth radius in meters
         return c * r
 
-    st.subheader("📍Your Loaction")
+    st.subheader("📍Your Location")
     m = folium.Map(location=[HOSPITAL_LAT, HOSPITAL_LON], zoom_start=17)
 
     folium.Circle(
